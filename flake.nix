@@ -76,22 +76,21 @@
       in rec {
         devShells.default = pkgs.devshell.mkShell {
           name = "ipld-inline";
-          packages =
-            [
-              # For nightly rustfmt to be used instead of the rustfmt provided by `rust-toolchain`, it must appear first in the list
-              # nightly-rustfmt
-              rust-toolchain
+          packages = [
+            # For nightly rustfmt to be used instead of the rustfmt provided by `rust-toolchain`, it must appear first in the list
+            # nightly-rustfmt
+            rust-toolchain
 
-              pkgs.wasmtime
-              self.packages.${system}.irust
-            ]
-            ++ format-pkgs
-            ++ cargo-installs
-            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin darwin-installs;
+            pkgs.wasmtime
+            self.packages.${system}.irust
+          ]
+          ++ format-pkgs
+          ++ cargo-installs
+          ++ pkgs.lib.optionals pkgs.stdenv.isDarwin darwin-installs;
 
           commands = [
             {
-              name     = "build:*";
+              name     = "build:native";
               help     = "Build for current native target";
               category = "task";
               command  = "${pkgs.cargo}/bin/cargo build";
@@ -107,6 +106,12 @@
               help     = "Build for WASI";
               category = "task";
               command  = "${pkgs.cargo}/bin/cargo build --target wasm32-wasi";
+            }
+            {
+              name     = "test:run";
+              help     = "Run Cargo tests";
+              category = "test";
+              command  = "${pkgs.cargo}/bin/cargo test";
             }
           ];
         };
