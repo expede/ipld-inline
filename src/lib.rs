@@ -9,6 +9,8 @@ use std::marker::PhantomData;
 // FIXME: unwraps & clones
 // FIXME: CidGeneric
 
+mod iterator;
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct PostOrderIpldIter<'a> {
     inbound: Vec<&'a Ipld>,  // work
@@ -56,8 +58,6 @@ impl<'a> Iterator for PostOrderIpldIter<'a> {
 fn poii_test() {
     use libipld::ipld;
     use libipld::multihash::MultihashDigest;
-    use libipld_cbor::DagCborCodec;
-    use std::collections::BTreeMap;
 
     let multihash = Sha2_256.digest([1, 2, 3].as_slice()); // FIXME coded on those bytes
 
@@ -171,14 +171,18 @@ where
                         }
 
                         if keys.len() == 2 && is_delimiter_next(&mut self.iterator) {
-                            if let Some(link @ Ipld::Link(cid)) = btree.get("link") {
+                            if let Some(Ipld::Link(_)) = btree.get("link") {
                                 self.iterator.next(); // i.e. skip delimiter
-                                let _cid = self.stack.pop().unwrap(); // i.e. skip CID FIXME do checks etc
 
-                                let node = self.stack.pop().unwrap();
+                                match self.stack.pop() {
+                                    Some(ref link @ Ipld::Link(cid)) => {
+                                        let node = self.stack.pop().unwrap();
 
-                                self.stack.push(link.clone());
-                                return Some((*cid, node));
+                                        self.stack.push(link.clone());
+                                        return Some((cid, node));
+                                    }
+                                    _ => panic!("expected an Ipld::Link"),
+                                }
                             }
                         }
                     }
@@ -220,26 +224,33 @@ pub fn is_delimiter_next(poii: &mut Peekable<PostOrderIpldIter>) -> bool {
 
 #[test]
 fn store_identity_test() {
+    use libipld::cid::CidGeneric;
     use libipld::ipld;
-    use libipld::multihash::MultihashDigest;
     use libipld_cbor::DagCborCodec;
     use std::collections::BTreeMap;
 
+    let cid = CidGeneric::try_from(
+        "bafyreie5xtjxubxwtytnuymfknf6ivzagr3grsj6bwf57lqohgydct3ite".to_string(),
+    )
+    .unwrap();
+
     let ipld = ipld!({"a": ["b", 1, 2, {"c": "d"}], "e": {"/": {"data": 123, "don't match": 42}}});
 
-    let mut observed: Vec<Ipld> = vec![];
+    let mut expected: BTreeMap<Cid, Ipld> = BTreeMap::new();
+    expected.insert(cid, ipld.clone());
+
+    let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
     for (cid, node) in TheBreakerUpper::new(&ipld, DagCborCodec) {
-        observed.push(node);
+        observed.insert(cid, node);
     }
 
-    assert_eq!(observed, vec![ipld.clone()]);
+    assert_eq!(observed, expected);
 }
 
 #[test]
 fn store_single_top_test() {
     use libipld::cid::CidGeneric;
     use libipld::ipld;
-    use libipld::multihash::MultihashDigest;
     use libipld_cbor::DagCborCodec;
     use std::collections::BTreeMap;
 
@@ -271,7 +282,6 @@ fn store_single_top_test() {
 fn store_single_top_linkful_test() {
     use libipld::cid::CidGeneric;
     use libipld::ipld;
-    use libipld::multihash::MultihashDigest;
     use libipld_cbor::DagCborCodec;
     use std::collections::BTreeMap;
 
@@ -303,7 +313,6 @@ fn store_single_top_linkful_test() {
 fn store_single_not_top_test() {
     use libipld::cid::CidGeneric;
     use libipld::ipld;
-    use libipld::multihash::MultihashDigest;
     use libipld_cbor::DagCborCodec;
     use std::collections::BTreeMap;
 
@@ -335,7 +344,6 @@ fn store_single_not_top_test() {
 fn store_single_not_top_linkful_test() {
     use libipld::cid::CidGeneric;
     use libipld::ipld;
-    use libipld::multihash::MultihashDigest;
     use libipld_cbor::DagCborCodec;
     use std::collections::BTreeMap;
 
@@ -367,28 +375,38 @@ fn store_single_not_top_linkful_test() {
 fn store_nested_test() {
     use libipld::cid::CidGeneric;
     use libipld::ipld;
-    use libipld::multihash::MultihashDigest;
     use libipld_cbor::DagCborCodec;
     use std::collections::BTreeMap;
 
     let ipld = ipld!({"/": {"data": [1, {"/": {"data": ["a", "b"]}}]}});
 
-    let mut observed: Vec<Ipld> = vec![];
-    for (cid, node) in TheBreakerUpper::new(&ipld, DagCborCodec) {
-        observed.push(node);
-    }
+    let mut expected: BTreeMap<Cid, Ipld> = BTreeMap::new();
 
     let cid1: Cid = CidGeneric::try_from(
         "bafyreia5h7xzw5e2wknxfzd5qmty3ebe452q7iwys6qo6lstpi5mlknkyu".to_string(),
     )
     .unwrap();
 
+    expected.insert(cid1, ipld!(["a", "b"]));
+
     let cid2: Cid = CidGeneric::try_from(
         "bafyreieytegtxlityotbbwbe3445s327jghqlbwyv7k7kxnpzjj7k3c6yu".to_string(),
     )
     .unwrap();
 
-    let expected = vec![ipld!(["a", "b"]), ipld!([1, cid1]), ipld!(cid2)];
+    expected.insert(cid2, ipld!([1, cid1]));
+
+    let cid3: Cid = CidGeneric::try_from(
+        "bafyreifxzbwbet5pqer5bopvf3wxgvooaijrhynk2wfoksygml6glk44m4".to_string(),
+    )
+    .unwrap();
+
+    expected.insert(cid3, ipld!(cid2));
+
+    let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
+    for (cid, node) in TheBreakerUpper::new(&ipld, DagCborCodec) {
+        observed.insert(cid, node);
+    }
 
     assert_eq!(observed, expected);
 }
@@ -397,7 +415,6 @@ fn store_nested_test() {
 fn store_nested_linkful_test() {
     use libipld::cid::CidGeneric;
     use libipld::ipld;
-    use libipld::multihash::MultihashDigest;
     use libipld_cbor::DagCborCodec;
     use std::collections::BTreeMap;
 
@@ -450,7 +467,6 @@ fn store_nested_linkful_test() {
 fn store_mixed_test() {
     use libipld::cid::CidGeneric;
     use libipld::ipld;
-    use libipld::multihash::MultihashDigest;
     use libipld_cbor::DagCborCodec;
     use std::collections::BTreeMap;
 
