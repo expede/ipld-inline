@@ -118,10 +118,10 @@ where
 
 #[derive(Debug, Error)]
 pub enum CidError {
-    #[error("unable to encode")]
-    EncodingError,
+    #[error("unable to encode to multihash: {0}")]
+    EncodingError(libipld::error::Error),
 
-    #[error("unable to convert to Cid")]
+    #[error("unable to convert to `Cid`")]
     ConstructionError(cid::Error),
 }
 
@@ -140,7 +140,7 @@ fn cid_of<C: Codec, D: MultihashDigest<64>>(
 where
     Ipld: Encode<C>,
 {
-    let encoded = codec.encode(ipld).map_err(|_| CidError::EncodingError)?;
+    let encoded = codec.encode(ipld).map_err(|e| CidError::EncodingError(e))?;
     let multihash = digester.digest(encoded.as_slice());
     CidGeneric::new(version, codec.into(), multihash).map_err(|e| CidError::ConstructionError(e))
 }
@@ -152,7 +152,62 @@ mod tests {
     use libipld::{cid::CidGeneric, ipld};
     use libipld_cbor::DagCborCodec;
     use multihash::Code::Sha2_256;
+    use proptest::prelude::*;
     use std::collections::BTreeMap;
+
+    #[derive(Clone, Debug, PartialEq)]
+    struct MoreThanIpld(Ipld);
+
+    impl Arbitrary for MoreThanIpld {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            prop_oneof![
+                Just(Ipld::Null),
+                any::<bool>().prop_map(Ipld::Bool),
+                any::<Vec<u8>>().prop_map(Ipld::Bytes),
+                // ...because libipld has broken bounds checks
+                any::<bool>().prop_flat_map(|neg| {
+                    any::<u64>().prop_map(move |i| {
+                        let num = if neg {
+                            -(i as i128)
+                        } else if i == u64::max_value() {
+                            (i as i128) - 1
+                        } else {
+                            i as i128
+                        };
+
+                        Ipld::Integer(num)
+                    })
+                }),
+                any::<f64>().prop_map(Ipld::Float),
+                ".*".prop_map(Ipld::String),
+                any::<u32>().prop_map(|i| {
+                    let encoded = DagCborCodec.encode(&Ipld::Integer(i.into())).unwrap();
+                    let multihash = Sha2_256.digest(encoded.as_slice());
+                    let cid = Cid::new_v1(Sha2_256.into(), multihash);
+                    Ipld::Link(cid)
+                })
+            ]
+            .prop_recursive(8, 256, 64, |inner| {
+                prop_oneof![
+                    prop::collection::vec(inner.clone(), 0..64).prop_map(Ipld::List),
+                    prop::collection::btree_map(".*", inner, 0..64).prop_map(Ipld::Map),
+                ]
+            })
+            .prop_map(MoreThanIpld)
+            .boxed()
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn identity_prop_test(MoreThanIpld(ipld) in any::<MoreThanIpld>()) {
+            let mut ext = Extractor::new(&ipld, DagCborCodec, Sha2_256, cid::Version::V1);
+            prop_assert!(ext.next().unwrap().1 == ipld);
+        }
+    }
 
     #[test]
     fn store_identity_test() {

@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc bcf6183d5e09b99bcefabc5bc8af6a9a69a67e8aeb4fb8d09ac84bca14d53ea2 # shrinks to ipld = MoreThanIpld(null)
+cc fe1c4b7f414b799696edcce6c3923a741dda1a3cc7e9c0f5d4a02a56c3d71b3d # shrinks to more_than_ipld = MoreThanIpld(null)
+cc bda6494301968c9cc208848a2a1eb0f89e7721931d927f16fff15f8dc0d58383 # shrinks to MoreThanIpld(ipld) = MoreThanIpld([])

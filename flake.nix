@@ -111,13 +111,13 @@
               name     = "watch:build";
               help     = "Rebuild on save";
               category = "watch";
-              command  = "${pkgs.cargo}/bin/cargo watch";
+              command  = "${pkgs.cargo}/bin/cargo watch --clear";
             }
             {
               name     = "watch:test";
               help     = "Run all tests on save";
               category = "watch";
-              command  = "${pkgs.cargo}/bin/cargo watch --exec test";
+              command  = "${pkgs.cargo}/bin/cargo watch --clear --exec test";
             }
             {
               name     = "test:all";
