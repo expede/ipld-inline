@@ -92,23 +92,35 @@
             {
               name     = "build:native";
               help     = "Build for current native target";
-              category = "task";
+              category = "build";
               command  = "${pkgs.cargo}/bin/cargo build";
             }
             {
               name     = "build:wasm";
               help     = "Build for wasm32-unknown-unknown";
-              category = "task";
+              category = "build";
               command  = "${pkgs.cargo}/bin/cargo build --target=wasm32-unknown-unknown";
             }
             {
               name     = "build:wasi";
               help     = "Build for WASI";
-              category = "task";
+              category = "build";
               command  = "${pkgs.cargo}/bin/cargo build --target wasm32-wasi";
             }
             {
-              name     = "test:run";
+              name     = "watch:build";
+              help     = "Rebuild on save";
+              category = "watch";
+              command  = "${pkgs.cargo}/bin/cargo watch";
+            }
+            {
+              name     = "watch:test";
+              help     = "Run all tests on save";
+              category = "watch";
+              command  = "${pkgs.cargo}/bin/cargo watch --exec test";
+            }
+            {
+              name     = "test:all";
               help     = "Run Cargo tests";
               category = "test";
               command  = "${pkgs.cargo}/bin/cargo test";
