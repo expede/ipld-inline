@@ -1,5 +1,4 @@
 use super::post_order::{is_delimiter_next, PostOrderIpldIter};
-
 use core::iter::Peekable;
 use libipld::cid::CidGeneric;
 use libipld::{
@@ -9,10 +8,143 @@ use libipld::{
     ipld::Ipld,
 };
 use multihash::MultihashDigest;
+use std::collections::BTreeMap;
 use thiserror::Error;
 
 // FIXME: unwraps & clones
 // FIXME: Docs
+
+pub trait ObjectStore: Clone {
+    fn get(&self, cid: &Cid) -> Option<&Ipld>;
+    fn put(&mut self, cid: Cid, ipld: Ipld) -> ();
+
+    fn put_raw<C: Codec, D: MultihashDigest<64>>(
+        &mut self,
+        codec: C,
+        digester: D,
+        version: cid::Version,
+        ipld: Ipld,
+    ) -> Result<(), CidError>
+    where
+        Ipld: Encode<C>,
+    {
+        // FIXME
+        let cid = cid_of(&ipld, codec, digester, version)?;
+        self.put(cid, ipld);
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
+pub struct MemoryStore {
+    store: BTreeMap<Cid, Ipld>,
+}
+
+impl MemoryStore {
+    pub fn new() -> Self {
+        MemoryStore {
+            store: BTreeMap::new(),
+        }
+    }
+}
+
+impl ObjectStore for MemoryStore {
+    fn get(&self, cid: &Cid) -> Option<&Ipld> {
+        self.store.get(cid)
+    }
+
+    fn put(&mut self, cid: Cid, ipld: Ipld) -> () {
+        self.store.insert(cid, ipld);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Inliner<'a, OStore: ObjectStore> {
+    iterator: PostOrderIpldIter<'a>,
+    store: OStore,
+}
+
+pub struct StuckAt<'a, OStore: ObjectStore> {
+    need: &'a Cid,
+    inliner: &'a mut Inliner<'a, OStore>,
+}
+
+pub enum InlinerState<'a, OStore: ObjectStore> {
+    Done(Ipld),
+    Stuck(StuckAt<'a, OStore>),
+}
+
+impl<'a, OStore: ObjectStore> StuckAt<'a, OStore> {
+    pub fn wants(&'a self) -> &'a Cid {
+        self.need
+    }
+
+    pub fn ignore(&'a self) -> &'a Inliner<'a, OStore> {
+        self.inliner
+    }
+
+    pub fn continue_with(&'a mut self, ipld: &'a Ipld) -> &mut Inliner<'_, OStore> {
+        let mut new_inliner = self.inliner.clone(); // FIXME
+        new_inliner.iterator.impose_next(ipld);
+        self.inliner
+    }
+}
+
+use std::ops::ControlFlow;
+use std::ops::ControlFlow::{Break, Continue};
+
+impl<'a, OStore: ObjectStore> Inliner<'a, OStore> {
+    pub fn new(ipld: &'a Ipld, store: OStore) -> Self {
+        Inliner {
+            iterator: PostOrderIpldIter::from(ipld),
+            store,
+        }
+    }
+
+    pub fn try_inline(&'a mut self) -> InlinerState<'a, OStore> {
+        let folded: ControlFlow<&Cid, Vec<Ipld>> =
+            self.iterator.try_fold(vec![], |mut acc, node| match node {
+                Ipld::Map(btree) => {
+                    let new_btree = btree.keys().map(|x| x.clone()).zip(acc).collect();
+                    Continue(vec![Ipld::Map(new_btree)])
+                }
+                Ipld::List(vec) => {
+                    let new_vec = acc.iter().take(vec.len()).map(|n| n.clone()).collect();
+                    acc.push(Ipld::List(new_vec));
+                    Continue(acc)
+                }
+                link @ Ipld::Link(cid) => {
+                    if let Some(ipld) = self.store.get(cid) {
+                        let mut inner = BTreeMap::new();
+                        inner.insert("link".to_string(), link.clone());
+                        inner.insert("data".to_string(), ipld.clone());
+
+                        let mut outer = BTreeMap::new();
+                        outer.insert("/".to_string(), Ipld::Map(inner));
+
+                        acc.push(Ipld::Map(outer));
+                        Continue(acc)
+                    } else {
+                        Break(cid)
+                    }
+                }
+                node => {
+                    acc.push(node.clone());
+                    Continue(acc)
+                }
+            });
+
+        match folded {
+            Break(missing_cid) => InlinerState::Stuck(StuckAt {
+                need: missing_cid,
+                inliner: self,
+            }),
+            Continue(mut x) => {
+                InlinerState::Done(x.pop().expect("should have exactly one item on the stack"))
+            }
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct Extractor<'a, C, D>
@@ -167,20 +299,7 @@ mod tests {
                 Just(Ipld::Null),
                 any::<bool>().prop_map(Ipld::Bool),
                 any::<Vec<u8>>().prop_map(Ipld::Bytes),
-                // ...because libipld has broken bounds checks
-                any::<bool>().prop_flat_map(|neg| {
-                    any::<u64>().prop_map(move |i| {
-                        let num = if neg {
-                            -(i as i128)
-                        } else if i == u64::max_value() {
-                            (i as i128) - 1
-                        } else {
-                            i as i128
-                        };
-
-                        Ipld::Integer(num)
-                    })
-                }),
+                any::<i64>().prop_map(|i| { Ipld::Integer(i as i128) }), // because we're testing the DagCborCodec, and Ipld isn't type safe on `Ipld::Integer`s
                 any::<f64>().prop_map(Ipld::Float),
                 ".*".prop_map(Ipld::String),
                 any::<u32>().prop_map(|i| {

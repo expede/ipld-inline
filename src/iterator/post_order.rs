@@ -7,6 +7,12 @@ pub struct PostOrderIpldIter<'a> {
     outbound: Vec<&'a Ipld>,
 }
 
+impl<'a> PostOrderIpldIter<'a> {
+    pub(crate) fn impose_next(&'a mut self, ipld: &'a Ipld) -> () {
+        self.inbound.push(ipld);
+    }
+}
+
 impl<'a> From<&'a Ipld> for PostOrderIpldIter<'a> {
     fn from(ipld_ref: &'a Ipld) -> Self {
         PostOrderIpldIter {
