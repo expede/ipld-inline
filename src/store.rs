@@ -1,18 +1,23 @@
+mod memory;
+
 use crate::cid::{cid_of, CidError};
 use libipld::{
     cid,
     cid::Cid,
     codec::{Codec, Encode},
+    error::{BlockNotFound, UnsupportedCodec},
     ipld::Ipld,
+    IpldCodec,
 };
+use memory::MemoryStore;
 use multihash::MultihashDigest;
-use std::collections::BTreeMap;
+use thiserror::Error;
 
 // FIXME: unwraps & clones
 // FIXME: Docs
 
 pub trait Store: Clone {
-    fn get(&self, cid: &Cid) -> Option<&Ipld>;
+    fn get(&self, cid: &Cid) -> Result<&Ipld, BlockNotFound>;
     fn put_keyed(&mut self, cid: Cid, ipld: Ipld);
 
     fn put<C: Codec, D: MultihashDigest<64>>(
@@ -30,30 +35,35 @@ pub trait Store: Clone {
         self.put_keyed(cid, ipld);
         Ok(())
     }
-}
 
-#[derive(Clone)]
-pub struct MemoryStore {
-    store: BTreeMap<Cid, Ipld>,
-}
+    fn get_raw(&self, cid: &Cid) -> Result<Vec<u8>, GetRawError> {
+        let ipld = self.get(cid).map_err(GetRawError::NotFound)?;
+        let codec_id: u64 = cid.codec();
+        let codec: IpldCodec = codec_id.try_into().map_err(GetRawError::UnknownCodec)?;
 
-impl MemoryStore {
-    pub fn new() -> Self {
-        MemoryStore {
-            store: BTreeMap::new(),
-        }
+        let mut buffer = vec![];
+        ipld.encode(codec, &mut buffer)
+            .map_err(GetRawError::EncodeFailed)?;
+
+        Ok(buffer)
     }
 }
 
-impl Default for MemoryStore {
-    fn default() -> Self {
-        MemoryStore::new()
-    }
+#[derive(Debug, Error)]
+pub enum GetRawError {
+    #[error(transparent)]
+    NotFound(#[from] BlockNotFound),
+
+    #[error(transparent)]
+    UnknownCodec(#[from] UnsupportedCodec),
+
+    #[error("failed to encode to bytes")]
+    EncodeFailed(#[from] libipld::error::Error),
 }
 
 impl Store for MemoryStore {
-    fn get(&self, cid: &Cid) -> Option<&Ipld> {
-        self.store.get(cid)
+    fn get(&self, cid: &Cid) -> Result<&Ipld, BlockNotFound> {
+        self.store.get(cid).ok_or(BlockNotFound(*cid))
     }
 
     fn put_keyed(&mut self, cid: Cid, ipld: Ipld) {

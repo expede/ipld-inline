@@ -4,14 +4,17 @@ pub mod inliner;
 pub mod iterator;
 pub mod store;
 
-use crate::{extractor::Extractor, store::Store};
-// use crate::{extractor::Extractor, inliner::Inliner, store::Store};
+use crate::{extractor::Extractor, inliner::Inliner, store::Store};
 use libipld::codec::{Codec, Encode};
 use libipld::{cid::Version, Ipld};
 use multihash::MultihashDigest;
 
 // FIXME more defaults
 // TODO consider making these properties of the store (to and from?)
+
+pub fn try_inline_fully<S: Store>(ipld: &Ipld, store: S) -> inliner::State<S> {
+    Inliner::new(ipld, store).try_inline()
+}
 
 pub fn extract<C: Codec>(
     ipld: &Ipld,
@@ -26,7 +29,3 @@ pub fn extract<C: Codec>(
         store.put_keyed(cid, dag);
     }
 }
-
-// pub fn inline<'a, S: Store>(ipld: &'a Ipld, store: S) -> inliner::State<'a, S> {
-//     Inliner::new(ipld, store).try_inline()
-// }

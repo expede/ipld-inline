@@ -11,8 +11,6 @@ pub struct Inliner<'a, S: Store> {
     store: S,
 }
 
-// FIXME iterator?
-
 impl<'a, S: Store> Inliner<'a, S> {
     pub fn new(ipld: &'a Ipld, store: S) -> Self {
         Inliner {
@@ -21,20 +19,22 @@ impl<'a, S: Store> Inliner<'a, S> {
         }
     }
 
-    pub fn try_inline(&'a mut self) -> State<'a, S> {
+    pub fn try_inline(mut self) -> State<'a, S> {
         let folded: ControlFlow<&Cid, Vec<Ipld>> =
             self.iterator.try_fold(vec![], |mut acc, node| match node {
                 Ipld::Map(btree) => {
                     let new_btree = btree.keys().cloned().zip(acc).collect();
                     Continue(vec![Ipld::Map(new_btree)])
                 }
+
                 Ipld::List(vec) => {
                     let new_vec = acc.iter().take(vec.len()).cloned().collect();
                     acc.push(Ipld::List(new_vec));
                     Continue(acc)
                 }
+
                 link @ Ipld::Link(cid) => {
-                    if let Some(ipld) = self.store.get(cid) {
+                    if let Ok(ipld) = self.store.get(cid) {
                         let mut inner = BTreeMap::new();
                         inner.insert("link".to_string(), link.clone());
                         inner.insert("data".to_string(), ipld.clone());
@@ -48,6 +48,7 @@ impl<'a, S: Store> Inliner<'a, S> {
                         Break(cid)
                     }
                 }
+
                 node => {
                     acc.push(node.clone());
                     Continue(acc)
@@ -66,14 +67,16 @@ impl<'a, S: Store> Inliner<'a, S> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum State<'a, S: Store> {
     Done(Ipld),
     Stuck(StuckAt<'a, S>),
 }
 
+#[derive(Clone, Debug)]
 pub struct StuckAt<'a, S: Store> {
     need: &'a Cid,
-    inliner: &'a mut Inliner<'a, S>,
+    inliner: Inliner<'a, S>,
 }
 
 impl<'a, S: Store> StuckAt<'a, S> {
@@ -81,11 +84,11 @@ impl<'a, S: Store> StuckAt<'a, S> {
         self.need
     }
 
-    pub fn ignore(&'a self) -> &'a Inliner<'a, S> {
+    pub fn ignore(self) -> Inliner<'a, S> {
         self.inliner
     }
 
-    pub fn continue_with(&'a mut self, ipld: &'a Ipld) -> &mut Inliner<'_, S> {
+    pub fn continue_with(self, ipld: &'a Ipld) -> Inliner<'_, S> {
         let mut new_inliner = self.inliner.clone(); // FIXME
         new_inliner.iterator.impose_next(ipld);
         self.inliner
