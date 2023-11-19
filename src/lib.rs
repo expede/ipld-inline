@@ -11,10 +11,13 @@ use multihash::MultihashDigest;
 
 // FIXME more defaults
 // TODO consider making these properties of the store (to and from?)
+// FIXME most of this has moved to the store
 
-// pub fn try_inline_fully<S: Store>(ipld: &Ipld, store: S) -> inliner::State<S> {
-//     Inliner::new(ipld, store).try_inline()
-// }
+pub fn inline<S: Store>(ipld: Ipld, store: S) -> Result<Ipld, inliner::Stuck<S>> {
+    Inliner::new(ipld, store)
+        .next()
+        .expect("should be nonempty")
+}
 
 pub fn extract<C: Codec, D: MultihashDigest<64>>(
     ipld: Ipld,

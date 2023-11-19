@@ -21,11 +21,29 @@ impl<S: Store> Inliner<S> {
 }
 
 impl<S: Store> Iterator for Inliner<S> {
-    type Item = State<S>;
+    type Item = Result<Ipld, Stuck<S>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         for node in self.iterator.clone() {
             match node {
+                Ipld::Link(cid) => {
+                    if let Ok(ipld) = self.store.get(&cid) {
+                        let mut inner = BTreeMap::new();
+                        inner.insert("link".to_string(), Ipld::Link(cid));
+                        inner.insert("data".to_string(), ipld.clone());
+
+                        let mut outer = BTreeMap::new();
+                        outer.insert("/".to_string(), Ipld::Map(inner));
+
+                        self.stack.push(Ipld::Map(outer));
+                    } else {
+                        return Some(Err(Stuck {
+                            need: cid,
+                            inliner: self.clone(),
+                        }));
+                    }
+                }
+
                 Ipld::Map(btree) => {
                     let keys = btree.keys();
                     let vals = self.stack.split_off(self.stack.len() - keys.len());
@@ -38,24 +56,6 @@ impl<S: Store> Iterator for Inliner<S> {
                     self.stack.push(Ipld::List(new_vec));
                 }
 
-                Ipld::Link(cid) => {
-                    if let Ok(ipld) = self.store.get(&cid) {
-                        let mut inner = BTreeMap::new();
-                        inner.insert("link".to_string(), Ipld::Link(cid));
-                        inner.insert("data".to_string(), ipld.clone());
-
-                        let mut outer = BTreeMap::new();
-                        outer.insert("/".to_string(), Ipld::Map(inner));
-
-                        self.stack.push(Ipld::Map(outer));
-                    } else {
-                        return Some(State::Stuck(StuckAt {
-                            need: cid,
-                            inliner: self.clone(),
-                        }));
-                    }
-                }
-
                 node => {
                     self.stack.push(node.clone());
                 }
@@ -66,23 +66,18 @@ impl<S: Store> Iterator for Inliner<S> {
             .stack
             .pop()
             .expect("should have exactly one item on the stack");
-        Some(State::Done(root))
+
+        Some(Ok(root))
     }
 }
 
 #[derive(Debug)]
-pub enum State<S: Store> {
-    Done(Ipld),
-    Stuck(StuckAt<S>),
-}
-
-#[derive(Debug)]
-pub struct StuckAt<S: Store> {
+pub struct Stuck<S: Store> {
     need: Cid,
     inliner: Inliner<S>,
 }
 
-impl<S: Store> StuckAt<S> {
+impl<S: Store> Stuck<S> {
     pub fn wants(&self) -> &Cid {
         &self.need
     }

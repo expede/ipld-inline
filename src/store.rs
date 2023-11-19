@@ -1,9 +1,11 @@
 mod memory;
 
 use crate::cid::{cid_of, CidError};
+use crate::extractor::Extractor;
+use crate::inliner::{Inliner, Stuck};
 use libipld::{
     cid,
-    cid::Cid,
+    cid::{Cid, Version},
     codec::{Codec, Encode},
     error::{BlockNotFound, UnsupportedCodec},
     ipld::Ipld,
@@ -46,6 +48,26 @@ pub trait Store: Clone {
             .map_err(GetRawError::EncodeFailed)?;
 
         Ok(buffer)
+    }
+
+    fn inline(self, ipld: Ipld) -> Result<Ipld, Stuck<Self>> {
+        Inliner::new(ipld, self)
+            .next()
+            .expect("should be nonempty because Ipld was just handed to the Inliner")
+    }
+
+    fn extract<C: Codec, D: MultihashDigest<64>>(
+        &mut self,
+        ipld: Ipld,
+        codec: C,
+        digester: &D,
+        cid_version: Version,
+    ) where
+        Ipld: Encode<C>,
+    {
+        for (cid, dag) in Extractor::new(ipld, codec, digester, cid_version) {
+            self.put_keyed(cid, dag);
+        }
     }
 }
 
