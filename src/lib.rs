@@ -4,31 +4,24 @@ pub mod inliner;
 pub mod iterator;
 pub mod store;
 
-// use crate::{extractor::Extractor, inliner::Inliner, store::Store};
-// use libipld::codec::{Codec, Encode};
-// use libipld::{cid::Version, Ipld};
-// use multihash::MultihashDigest;
+use crate::inliner::Inliner;
+use crate::store::Store;
+use libipld::cid::Version;
+use libipld::codec_impl::IpldCodec;
+use libipld::Ipld;
+use multihash::Code::Sha2_256;
+use std::fmt::Debug;
 
-// FIXME more defaults
-// TODO consider making these properties of the store (to and from?)
-// FIXME most of this has moved to the store
+// FIXME: this does its best, basically
+pub fn inline<S: Store + Debug>(ipld: Ipld, store: S) -> Ipld {
+    Inliner::new(ipld, store)
+        .last()
+        .expect("should at least have the Ipld that was passed in")
+        .expect("always returns Ipld at the final step")
+}
 
-// pub fn inline<S: Store>(ipld: Ipld, store: S) -> Result<Ipld, inliner::Stuck<S>> {
-//     Inliner::new(ipld, store)
-//         .next()
-//         .expect("should be nonempty")
-// }
-//
-// pub fn extract<C: Codec, D: MultihashDigest<64>>(
-//     ipld: Ipld,
-//     store: &mut impl Store,
-//     codec: C,
-//     digester: &D,
-//     cid_version: Version,
-// ) where
-//     Ipld: Encode<C>,
-// {
-//     for (cid, dag) in Extractor::new(ipld, codec, digester, cid_version) {
-//         store.put_keyed(cid, dag);
-//     }
-// }
+pub fn extract<S: Store + Default>(ipld: Ipld) -> S {
+    let mut store: S = Default::default();
+    store.extract(ipld, IpldCodec::DagCbor, &Sha2_256, Version::V1);
+    store
+}

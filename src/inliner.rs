@@ -3,6 +3,8 @@ use crate::store::Store;
 use libipld::{cid::Cid, ipld::Ipld};
 use std::collections::BTreeMap;
 
+// FIXME do versions that 1. always inline, and 2. only once inlines
+
 #[derive(Clone, Debug)]
 pub struct Inliner<S: Store> {
     iterator: PostOrderIpldIter,
@@ -61,13 +63,27 @@ impl<S: Store> Inliner<S> {
         let root = self
             .stack
             .pop()
-            .expect("should have exactly one item on the stack"); // FIXME change stack to nonempty?
+            .expect("should have exactly one item on the stack");
 
         Ok(root)
     }
 }
 
-#[derive(Debug)]
+impl<S: Store> Iterator for Inliner<S> {
+    type Item = Result<Ipld, Stuck<S>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut peekable = self.iterator.clone().peekable();
+
+        if peekable.peek().is_some() {
+            Some(self.clone().attempt())
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Stuck<S: Store> {
     need: Cid,
     inliner: Inliner<S>,
