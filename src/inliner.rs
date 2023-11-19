@@ -19,7 +19,7 @@ impl<'a, S: Store> Inliner<'a, S> {
         }
     }
 
-    pub fn try_inline(mut self) -> State<'a, S> {
+    pub fn try_inline(&'a mut self) -> State<'a, S> {
         let folded: ControlFlow<&Cid, Vec<Ipld>> =
             self.iterator.try_fold(vec![], |mut acc, node| match node {
                 Ipld::Map(btree) => {
@@ -55,6 +55,7 @@ impl<'a, S: Store> Inliner<'a, S> {
                 }
             });
 
+// FIXME make these into an iterator
         match folded {
             Break(missing_cid) => State::Stuck(StuckAt {
                 need: missing_cid,
@@ -67,30 +68,29 @@ impl<'a, S: Store> Inliner<'a, S> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum State<'a, S: Store> {
     Done(Ipld),
     Stuck(StuckAt<'a, S>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct StuckAt<'a, S: Store> {
     need: &'a Cid,
-    inliner: Inliner<'a, S>,
+    inliner: &'a mut Inliner<'a, S>,
 }
 
-impl<'a, S: Store> StuckAt<'a, S> {
+impl<'a, S: Store + 'a> StuckAt<'a, S> {
     pub fn wants(&'a self) -> &'a Cid {
         self.need
     }
 
-    pub fn ignore(self) -> Inliner<'a, S> {
-        self.inliner
-    }
+   pub fn ignore(self) -> &'a Inliner<'a, S> {
+       self.inliner
+   }
 
-    pub fn continue_with(self, ipld: &'a Ipld) -> Inliner<'_, S> {
-        let mut new_inliner = self.inliner.clone(); // FIXME
-        new_inliner.iterator.impose_next(ipld);
-        self.inliner
-    }
+   pub fn resolve(&'a mut self, ipld: &'a Ipld) -> &Inliner<'_, S> {
+     self.inliner.iterator.inbound.push(ipld);
+     self.inliner
+   }
 }

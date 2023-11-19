@@ -12,9 +12,9 @@ use multihash::MultihashDigest;
 // FIXME more defaults
 // TODO consider making these properties of the store (to and from?)
 
-pub fn try_inline_fully<S: Store>(ipld: &Ipld, store: S) -> inliner::State<S> {
-    Inliner::new(ipld, store).try_inline()
-}
+// pub fn try_inline_fully<S: Store>(ipld: &Ipld, store: S) -> inliner::State<S> {
+//     Inliner::new(ipld, store).try_inline()
+// }
 
 pub fn extract<C: Codec, D: MultihashDigest<64>>(
     ipld: &Ipld,

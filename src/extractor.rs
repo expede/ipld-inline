@@ -60,7 +60,7 @@ where
                     self.stack.push(Ipld::List(substack));
                 }
                 Some(Ipld::Map(btree)) => {
-                    let keys: Vec<String> = btree.keys().cloned().collect();
+                    let keys: Vec<&String> = btree.keys().collect();
 
                     if btree.get("data").is_some() {
                         if keys.len() == 1 && is_delimiter_next(&mut self.iterator) {
@@ -96,10 +96,10 @@ where
                         }
                     }
 
-                    let substack = self.stack.split_off(self.stack.len() - keys.len());
+                    let substack: Vec<Ipld> = self.stack.split_off(self.stack.len() - keys.len());
 
                     self.stack
-                        .push(Ipld::Map(keys.iter().cloned().zip(substack).collect()));
+                        .push(Ipld::Map(keys.into_iter().cloned().zip(substack).collect()));
                 }
 
                 Some(node) => {

@@ -3,15 +3,15 @@ use libipld::ipld::Ipld;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct PostOrderIpldIter<'a> {
-    inbound: Vec<&'a Ipld>,
+    pub(crate) inbound: Vec<&'a Ipld>,
     outbound: Vec<&'a Ipld>,
 }
 
-impl<'a> PostOrderIpldIter<'a> {
-    pub(crate) fn impose_next(&'a mut self, ipld: &'a Ipld) {
-        self.inbound.push(ipld);
-    }
-}
+// impl<'a> PostOrderIpldIter<'a> {
+//     pub(crate) fn impose_next(&'a mut self, ipld: &'a Ipld) {
+//         self.inbound.push(ipld);
+//     }
+// }
 
 impl<'a> From<&'a Ipld> for PostOrderIpldIter<'a> {
     fn from(ipld_ref: &'a Ipld) -> Self {
