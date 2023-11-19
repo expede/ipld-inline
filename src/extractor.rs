@@ -17,23 +17,23 @@ where
     iterator: Peekable<PostOrderIpldIter<'a>>,
     stack: Vec<Ipld>,
 
-    cid_version: cid::Version,
     codec: C,
-    digester: D,
+    digester: &'a D,
+    cid_version: cid::Version,
 }
 
 impl<'a, C: Codec, D: MultihashDigest<64>> Extractor<'a, C, D>
 where
     Ipld: Encode<C>,
 {
-    pub fn new(ipld: &'a Ipld, codec: C, digester: D, cid_version: cid::Version) -> Self {
+    pub fn new(ipld: &'a Ipld, codec: C, digester: &'a D, cid_version: cid::Version) -> Self {
         Extractor {
             iterator: <&Ipld as Into<PostOrderIpldIter>>::into(ipld).peekable(),
             stack: vec![],
 
-            cid_version,
             codec,
             digester,
+            cid_version,
         }
     }
 }

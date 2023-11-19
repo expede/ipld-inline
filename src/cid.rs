@@ -11,7 +11,7 @@ use thiserror::Error;
 pub fn cid_of<C: Codec, D: MultihashDigest<64>>(
     ipld: &Ipld,
     codec: C,
-    digester: D,
+    digester: &D,
     version: cid::Version,
 ) -> Result<Cid, CidError>
 where
@@ -24,15 +24,9 @@ where
 
 #[derive(Debug, Error)]
 pub enum CidError {
-    #[error("unable to encode to multihash: {0}")]
-    EncodingError(libipld::error::Error),
+    #[error(transparent)]
+    EncodingError(#[from] libipld::error::Error),
 
     #[error("unable to convert to `Cid`")]
-    ConstructionError(cid::Error),
-}
-
-impl From<cid::Error> for CidError {
-    fn from(err: cid::Error) -> Self {
-        CidError::ConstructionError(err)
-    }
+    ConstructionError(#[from] cid::Error),
 }

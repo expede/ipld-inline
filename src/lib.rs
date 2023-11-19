@@ -16,11 +16,11 @@ pub fn try_inline_fully<S: Store>(ipld: &Ipld, store: S) -> inliner::State<S> {
     Inliner::new(ipld, store).try_inline()
 }
 
-pub fn extract<C: Codec>(
+pub fn extract<C: Codec, D: MultihashDigest<64>>(
     ipld: &Ipld,
     store: &mut impl Store,
     codec: C,
-    digester: impl MultihashDigest<64>,
+    digester: &D,
     cid_version: Version,
 ) where
     Ipld: Encode<C>,

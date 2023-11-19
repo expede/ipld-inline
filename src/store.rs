@@ -23,7 +23,7 @@ pub trait Store: Clone {
     fn put<C: Codec, D: MultihashDigest<64>>(
         &mut self,
         codec: C,
-        digester: D,
+        digester: &D,
         version: cid::Version,
         ipld: Ipld,
     ) -> Result<(), CidError>
