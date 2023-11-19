@@ -2,46 +2,40 @@ use core::iter::Peekable;
 use libipld::ipld::Ipld;
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct PostOrderIpldIter<'a> {
-    pub(crate) inbound: Vec<&'a Ipld>,
-    outbound: Vec<&'a Ipld>,
+pub struct PostOrderIpldIter {
+    pub(crate) inbound: Vec<Ipld>,
+    outbound: Vec<Ipld>,
 }
 
-// impl<'a> PostOrderIpldIter<'a> {
-//     pub(crate) fn impose_next(&'a mut self, ipld: &'a Ipld) {
-//         self.inbound.push(ipld);
-//     }
-// }
-
-impl<'a> From<&'a Ipld> for PostOrderIpldIter<'a> {
-    fn from(ipld_ref: &'a Ipld) -> Self {
+impl From<Ipld> for PostOrderIpldIter {
+    fn from(ipld: Ipld) -> Self {
         PostOrderIpldIter {
-            inbound: vec![ipld_ref],
+            inbound: vec![ipld],
             outbound: vec![],
         }
     }
 }
 
-impl<'a> Iterator for PostOrderIpldIter<'a> {
-    type Item = &'a Ipld;
+impl Iterator for PostOrderIpldIter {
+    type Item = Ipld;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match self.inbound.pop() {
                 None => return self.outbound.pop(),
-                Some(map @ Ipld::Map(btree)) => {
-                    self.outbound.push(map);
+                Some(Ipld::Map(btree)) => {
+                    self.outbound.push(Ipld::Map(btree.clone()));
 
-                    for node in btree.values() {
-                        self.inbound.push(node);
+                    for node in btree.clone().values() {
+                        self.inbound.push(node.clone());
                     }
                 }
 
-                Some(list @ Ipld::List(vector)) => {
-                    self.outbound.push(list);
+                Some(Ipld::List(vector)) => {
+                    self.outbound.push(Ipld::List(vector.clone()));
 
                     for node in vector.iter() {
-                        self.inbound.push(node);
+                        self.inbound.push(node.clone());
                     }
                 }
                 Some(node) => self.outbound.push(node),

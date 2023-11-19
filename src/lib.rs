@@ -17,7 +17,7 @@ use multihash::MultihashDigest;
 // }
 
 pub fn extract<C: Codec, D: MultihashDigest<64>>(
-    ipld: &Ipld,
+    ipld: Ipld,
     store: &mut impl Store,
     codec: C,
     digester: &D,

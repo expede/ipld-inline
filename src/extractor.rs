@@ -14,7 +14,7 @@ pub struct Extractor<'a, C, D>
 where
     D: MultihashDigest<64>,
 {
-    iterator: Peekable<PostOrderIpldIter<'a>>,
+    iterator: Peekable<PostOrderIpldIter>,
     stack: Vec<Ipld>,
 
     codec: C,
@@ -26,9 +26,9 @@ impl<'a, C: Codec, D: MultihashDigest<64>> Extractor<'a, C, D>
 where
     Ipld: Encode<C>,
 {
-    pub fn new(ipld: &'a Ipld, codec: C, digester: &'a D, cid_version: cid::Version) -> Self {
+    pub fn new(ipld: Ipld, codec: C, digester: &'a D, cid_version: cid::Version) -> Self {
         Extractor {
-            iterator: <&Ipld as Into<PostOrderIpldIter>>::into(ipld).peekable(),
+            iterator: <Ipld as Into<PostOrderIpldIter>>::into(ipld).peekable(),
             stack: vec![],
 
             codec,

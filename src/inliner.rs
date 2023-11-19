@@ -2,95 +2,97 @@ use crate::iterator::post_order::PostOrderIpldIter;
 use crate::store::Store;
 use libipld::{cid::Cid, ipld::Ipld};
 use std::collections::BTreeMap;
-use std::ops::ControlFlow;
-use std::ops::ControlFlow::{Break, Continue};
 
 #[derive(Clone, Debug)]
-pub struct Inliner<'a, S: Store> {
-    iterator: PostOrderIpldIter<'a>,
+pub struct Inliner<S: Store> {
+    iterator: PostOrderIpldIter,
+    stack: Vec<Ipld>,
     store: S,
 }
 
-impl<'a, S: Store> Inliner<'a, S> {
-    pub fn new(ipld: &'a Ipld, store: S) -> Self {
+impl<S: Store> Inliner<S> {
+    pub fn new(ipld: Ipld, store: S) -> Self {
         Inliner {
             iterator: PostOrderIpldIter::from(ipld),
+            stack: vec![],
             store,
         }
     }
+}
 
-    pub fn try_inline(&'a mut self) -> State<'a, S> {
-        let folded: ControlFlow<&Cid, Vec<Ipld>> =
-            self.iterator.try_fold(vec![], |mut acc, node| match node {
+impl<S: Store> Iterator for Inliner<S> {
+    type Item = State<S>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        for node in self.iterator.clone() {
+            match node {
                 Ipld::Map(btree) => {
-                    let new_btree = btree.keys().cloned().zip(acc).collect();
-                    Continue(vec![Ipld::Map(new_btree)])
+                    let keys = btree.keys();
+                    let vals = self.stack.split_off(self.stack.len() - keys.len());
+                    let new_btree = keys.cloned().zip(vals).collect();
+                    self.stack = vec![Ipld::Map(new_btree)]
                 }
 
                 Ipld::List(vec) => {
-                    let new_vec = acc.iter().take(vec.len()).cloned().collect();
-                    acc.push(Ipld::List(new_vec));
-                    Continue(acc)
+                    let new_vec = self.stack.split_off(self.stack.len() - vec.len());
+                    self.stack.push(Ipld::List(new_vec));
                 }
 
-                link @ Ipld::Link(cid) => {
-                    if let Ok(ipld) = self.store.get(cid) {
+                Ipld::Link(cid) => {
+                    if let Ok(ipld) = self.store.get(&cid) {
                         let mut inner = BTreeMap::new();
-                        inner.insert("link".to_string(), link.clone());
+                        inner.insert("link".to_string(), Ipld::Link(cid));
                         inner.insert("data".to_string(), ipld.clone());
 
                         let mut outer = BTreeMap::new();
                         outer.insert("/".to_string(), Ipld::Map(inner));
 
-                        acc.push(Ipld::Map(outer));
-                        Continue(acc)
+                        self.stack.push(Ipld::Map(outer));
                     } else {
-                        Break(cid)
+                        return Some(State::Stuck(StuckAt {
+                            need: cid,
+                            inliner: self.clone(),
+                        }));
                     }
                 }
 
                 node => {
-                    acc.push(node.clone());
-                    Continue(acc)
+                    self.stack.push(node.clone());
                 }
-            });
-
-// FIXME make these into an iterator
-        match folded {
-            Break(missing_cid) => State::Stuck(StuckAt {
-                need: missing_cid,
-                inliner: self,
-            }),
-            Continue(mut x) => {
-                State::Done(x.pop().expect("should have exactly one item on the stack"))
             }
         }
+
+        let root = self
+            .stack
+            .pop()
+            .expect("should have exactly one item on the stack");
+        Some(State::Done(root))
     }
 }
 
 #[derive(Debug)]
-pub enum State<'a, S: Store> {
+pub enum State<S: Store> {
     Done(Ipld),
-    Stuck(StuckAt<'a, S>),
+    Stuck(StuckAt<S>),
 }
 
 #[derive(Debug)]
-pub struct StuckAt<'a, S: Store> {
-    need: &'a Cid,
-    inliner: &'a mut Inliner<'a, S>,
+pub struct StuckAt<S: Store> {
+    need: Cid,
+    inliner: Inliner<S>,
 }
 
-impl<'a, S: Store + 'a> StuckAt<'a, S> {
-    pub fn wants(&'a self) -> &'a Cid {
-        self.need
+impl<S: Store> StuckAt<S> {
+    pub fn wants(&self) -> &Cid {
+        &self.need
     }
 
-   pub fn ignore(self) -> &'a Inliner<'a, S> {
-       self.inliner
-   }
+    pub fn ignore(self) -> Inliner<S> {
+        self.inliner
+    }
 
-   pub fn resolve(&'a mut self, ipld: &'a Ipld) -> &Inliner<'_, S> {
-     self.inliner.iterator.inbound.push(ipld);
-     self.inliner
-   }
+    pub fn resolve(&mut self, ipld: Ipld) -> &Inliner<S> {
+        self.inliner.iterator.inbound.push(ipld);
+        &self.inliner
+    }
 }
