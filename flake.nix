@@ -108,10 +108,22 @@
               command  = "${pkgs.cargo}/bin/cargo build --target wasm32-wasi";
             }
             {
+              name     = "lint";
+              help     = "Run Clippy";
+              category = "dev";
+              command  = "${pkgs.cargo}/bin/cargo clippy";
+            }
+            {
               name     = "watch:build";
               help     = "Rebuild on save";
               category = "watch";
               command  = "${pkgs.cargo}/bin/cargo watch --clear";
+            }
+            {
+              name     = "watch:lint";
+              help     = "Lint on save";
+              category = "watch";
+              command  = "${pkgs.cargo}/bin/cargo watch --clear --exec clippy";
             }
             {
               name     = "watch:test";

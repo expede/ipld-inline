@@ -8,7 +8,7 @@ pub struct PostOrderIpldIter<'a> {
 }
 
 impl<'a> PostOrderIpldIter<'a> {
-    pub(crate) fn impose_next(&'a mut self, ipld: &'a Ipld) -> () {
+    pub(crate) fn impose_next(&'a mut self, ipld: &'a Ipld) {
         self.inbound.push(ipld);
     }
 }
@@ -30,7 +30,7 @@ impl<'a> Iterator for PostOrderIpldIter<'a> {
             match self.inbound.pop() {
                 None => return self.outbound.pop(),
                 Some(map @ Ipld::Map(btree)) => {
-                    self.outbound.push(&map);
+                    self.outbound.push(map);
 
                     for node in btree.values() {
                         self.inbound.push(node);
@@ -38,7 +38,7 @@ impl<'a> Iterator for PostOrderIpldIter<'a> {
                 }
 
                 Some(list @ Ipld::List(vector)) => {
-                    self.outbound.push(&list);
+                    self.outbound.push(list);
 
                     for node in vector.iter() {
                         self.inbound.push(node);
