@@ -18,12 +18,8 @@ impl<S: Store> Inliner<S> {
             store,
         }
     }
-}
 
-impl<S: Store> Iterator for Inliner<S> {
-    type Item = Result<Ipld, Stuck<S>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
+    pub fn attempt(mut self) -> Result<Ipld, Stuck<S>> {
         for node in self.iterator.clone() {
             match node {
                 Ipld::Link(cid) => {
@@ -37,10 +33,10 @@ impl<S: Store> Iterator for Inliner<S> {
 
                         self.stack.push(Ipld::Map(outer));
                     } else {
-                        return Some(Err(Stuck {
+                        return Err(Stuck {
                             need: cid,
-                            inliner: self.clone(),
-                        }));
+                            inliner: self,
+                        });
                     }
                 }
 
@@ -65,9 +61,9 @@ impl<S: Store> Iterator for Inliner<S> {
         let root = self
             .stack
             .pop()
-            .expect("should have exactly one item on the stack");
+            .expect("should have exactly one item on the stack"); // FIXME change stack to nonempty?
 
-        Some(Ok(root))
+        Ok(root)
     }
 }
 
@@ -82,12 +78,12 @@ impl<S: Store> Stuck<S> {
         &self.need
     }
 
-    pub fn ignore(self) -> Inliner<S> {
-        self.inliner
-    }
-
     pub fn resolve(&mut self, ipld: Ipld) -> &Inliner<S> {
         self.inliner.iterator.inbound.push(ipld);
         &self.inliner
+    }
+
+    pub fn ignore(&mut self) -> &Inliner<S> {
+        self.resolve(Ipld::Link(self.need))
     }
 }

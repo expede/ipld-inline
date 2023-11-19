@@ -2,7 +2,7 @@ mod memory;
 
 use crate::cid::{cid_of, CidError};
 use crate::extractor::Extractor;
-use crate::inliner::{Inliner, Stuck};
+use crate::inliner::Inliner;
 use libipld::{
     cid,
     cid::{Cid, Version},
@@ -50,10 +50,8 @@ pub trait Store: Clone {
         Ok(buffer)
     }
 
-    fn inline(self, ipld: Ipld) -> Result<Ipld, Stuck<Self>> {
+    fn inline(self, ipld: Ipld) -> Inliner<Self> {
         Inliner::new(ipld, self)
-            .next()
-            .expect("should be nonempty because Ipld was just handed to the Inliner")
     }
 
     fn extract<C: Codec, D: MultihashDigest<64>>(
