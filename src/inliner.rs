@@ -1,28 +1,44 @@
 use crate::iterator::post_order::PostOrderIpldIter;
 use crate::store::Store;
 use libipld::{cid::Cid, ipld::Ipld};
+use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 // FIXME do versions that 1. always inline, and 2. only once inlines
 
 #[derive(Clone, Debug)]
 pub struct Inliner<S: Store> {
-    iterator: PostOrderIpldIter,
+    po_cell: RefCell<PostOrderIpldIter>,
+    store: Rc<S>,
     stack: Vec<Ipld>,
-    store: S,
 }
 
-impl<S: Store> Inliner<S> {
-    pub fn new(ipld: Ipld, store: S) -> Self {
+impl<S: Store + Clone> Inliner<S> {
+    pub fn new(ipld: Ipld, store: Rc<S>) -> Self {
         Inliner {
-            iterator: PostOrderIpldIter::from(ipld),
+            po_cell: RefCell::new(PostOrderIpldIter::from(ipld)),
             stack: vec![],
             store,
         }
     }
 
-    pub fn attempt(mut self) -> Result<Ipld, Stuck<S>> {
-        for node in self.iterator.clone() {
+    pub fn do_your_best(&mut self) -> Option<Ipld> {
+        self.fold(None, |acc, result| match result {
+            Ok(ipld) => Some(ipld),
+            Err(stuck) => {
+                stuck.ignore();
+                acc
+            }
+        })
+    }
+}
+
+impl<S: Store + Clone> Iterator for Inliner<S> {
+    type Item = Result<Ipld, Stuck<S>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        for node in self.po_cell.get_mut() {
             match node {
                 Ipld::Link(cid) => {
                     if let Ok(ipld) = self.store.get(&cid) {
@@ -35,10 +51,10 @@ impl<S: Store> Inliner<S> {
 
                         self.stack.push(Ipld::Map(outer));
                     } else {
-                        return Err(Stuck {
+                        return Some(Err(Stuck {
                             need: cid,
-                            inliner: self,
-                        });
+                            inliner: Rc::new(self.clone()),
+                        }));
                     }
                 }
 
@@ -46,7 +62,7 @@ impl<S: Store> Inliner<S> {
                     let keys = btree.keys();
                     let vals = self.stack.split_off(self.stack.len() - keys.len());
                     let new_btree = keys.cloned().zip(vals).collect();
-                    self.stack = vec![Ipld::Map(new_btree)]
+                    self.stack = vec![Ipld::Map(new_btree)];
                 }
 
                 Ipld::List(vec) => {
@@ -65,28 +81,14 @@ impl<S: Store> Inliner<S> {
             .pop()
             .expect("should have exactly one item on the stack");
 
-        Ok(root)
-    }
-}
-
-impl<S: Store> Iterator for Inliner<S> {
-    type Item = Result<Ipld, Stuck<S>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut peekable = self.iterator.clone().peekable();
-
-        if peekable.peek().is_some() {
-            Some(self.clone().attempt())
-        } else {
-            None
-        }
+        Some(Ok(root))
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct Stuck<S: Store> {
     need: Cid,
-    inliner: Inliner<S>,
+    inliner: Rc<Inliner<S>>,
 }
 
 impl<S: Store> Stuck<S> {
@@ -94,12 +96,17 @@ impl<S: Store> Stuck<S> {
         &self.need
     }
 
-    pub fn resolve(&mut self, ipld: Ipld) -> &Inliner<S> {
-        self.inliner.iterator.inbound.push(ipld);
-        &self.inliner
+    pub fn resolve(self, ipld: Ipld) -> Option<Inliner<S>> {
+        if let Ok(mut il) = Rc::try_unwrap(self.inliner) {
+            il.stack.push(ipld);
+            Some(il)
+        } else {
+            None
+        }
     }
 
-    pub fn ignore(&mut self) -> &Inliner<S> {
-        self.resolve(Ipld::Link(self.need))
+    pub fn ignore(self) -> Option<Inliner<S>> {
+        let cid = self.need;
+        self.resolve(Ipld::Link(cid))
     }
 }

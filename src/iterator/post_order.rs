@@ -3,7 +3,7 @@ use libipld::ipld::Ipld;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct PostOrderIpldIter {
-    pub(crate) inbound: Vec<Ipld>,
+    inbound: Vec<Ipld>,
     outbound: Vec<Ipld>,
 }
 

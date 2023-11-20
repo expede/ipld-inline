@@ -2,7 +2,6 @@ pub mod memory;
 
 use crate::cid::{cid_of, CidError};
 use crate::extractor::Extractor;
-use crate::inliner::{Inliner, Stuck};
 use libipld::{
     cid,
     cid::{Cid, Version},
@@ -18,7 +17,7 @@ use thiserror::Error;
 // FIXME: unwraps & clones
 // FIXME: Docs
 
-pub trait Store: Clone {
+pub trait Store {
     fn get(&self, cid: &Cid) -> Result<&Ipld, BlockNotFound>;
     fn put_keyed(&mut self, cid: Cid, ipld: Ipld);
 
@@ -50,9 +49,9 @@ pub trait Store: Clone {
         Ok(buffer)
     }
 
-    fn inline(self, ipld: Ipld) -> Result<Ipld, Stuck<Self>> {
-        Inliner::new(ipld, self).attempt()
-    }
+    // fn inline<'i, 's>(self, ipld: Ipld) -> Result<Ipld, Stuck<'i, 's, Self>> {
+    //     Inliner::new(ipld, &self).attempt()
+    // }
 
     fn extract<C: Codec, D: MultihashDigest<64>>(
         &mut self,
