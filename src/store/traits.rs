@@ -1,5 +1,8 @@
 use crate::cid::{cid_of, CidError};
 use crate::extractor::Extractor;
+use crate::inliner::at_most_once::AtMostOnce;
+use crate::inliner::exactly_once::ExactlyOnce;
+use crate::inliner::quiet::Quiet;
 use libipld::{
     cid,
     cid::{Cid, Version},
@@ -44,9 +47,25 @@ pub trait Store {
         Ok(buffer)
     }
 
-    // fn inline<'i, 's>(self, ipld: Ipld) -> Result<Ipld, Stuck<'i, 's, Self>> {
-    //     Inliner::new(ipld, &self).attempt()
-    // }
+    fn try_inline<'a>(&'a self, ipld: Ipld) -> Result<Ipld, Cid> {
+        ExactlyOnce::new(ipld, self)
+            .last()
+            .expect("should have at least the `Ipld` that was passed in")
+    }
+
+    fn inline_at_most_once<'a>(&'a self, ipld: Ipld) -> Ipld {
+        Quiet::new(ipld, self)
+            .last()
+            .expect("should have at least the `Ipld` that was passed in")
+            .expect("should have at least the `Ipld` that was passed in")
+    }
+
+    fn try_inline_exactly_once<'a>(&'a self, ipld: Ipld) -> Result<Ipld, Cid> {
+        // FIXME
+        AtMostOnce::new(ipld, self)
+            .last()
+            .expect("should have at least the `Ipld` that was passed in")
+    }
 
     fn extract<C: Codec, D: MultihashDigest<64>>(
         &mut self,

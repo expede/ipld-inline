@@ -4,13 +4,13 @@ use libipld::{cid::Cid, ipld::Ipld};
 use std::{cell::RefCell, clone::Clone, collections::BTreeMap};
 
 #[derive(Clone, Debug)]
-pub struct Quiet<'a, S: Store> {
-    pub(super) po_cell: RefCell<PostOrderIpldIter>,
-    pub(super) stack: Vec<Ipld>,
-    pub(super) store: &'a S,
+pub struct Quiet<'a, S: Store + ?Sized> {
+    po_cell: RefCell<PostOrderIpldIter>,
+    stack: Vec<Ipld>,
+    store: &'a S,
 }
 
-impl<'a, S: Store> Quiet<'a, S> {
+impl<'a, S: Store + ?Sized> Quiet<'a, S> {
     pub fn new(ipld: Ipld, store: &'a S) -> Self {
         Quiet {
             po_cell: RefCell::new(PostOrderIpldIter::from(ipld)),
@@ -18,9 +18,13 @@ impl<'a, S: Store> Quiet<'a, S> {
             store,
         }
     }
+
+    pub(super) fn push(&mut self, ipld: Ipld) {
+        self.stack.push(ipld);
+    }
 }
 
-impl<'a, S: Store> Iterator for Quiet<'a, S> {
+impl<'a, S: Store + ?Sized> Iterator for Quiet<'a, S> {
     type Item = Result<Ipld, Cid>;
 
     fn next(&mut self) -> Option<Self::Item> {
