@@ -9,6 +9,7 @@ use libipld::{
     IpldCodec,
 };
 use multihash::MultihashDigest;
+use std::collections::BTreeMap;
 use thiserror::Error;
 
 pub trait Store {
@@ -72,4 +73,14 @@ pub enum GetRawError {
 
     #[error("failed to encode to bytes")]
     EncodeFailed(#[from] libipld::error::Error),
+}
+
+impl Store for BTreeMap<Cid, Ipld> {
+    fn get(&self, cid: &Cid) -> Result<&Ipld, BlockNotFound> {
+        self.get(cid).ok_or(BlockNotFound(*cid))
+    }
+
+    fn put_keyed(&mut self, cid: Cid, ipld: Ipld) {
+        self.insert(cid, ipld);
+    }
 }

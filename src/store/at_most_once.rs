@@ -3,10 +3,12 @@ use libipld::{error::BlockNotFound, Cid, Ipld};
 use std::cell::RefCell;
 use std::collections::hash_set::HashSet;
 
+// NOTE opposite of inliner::Quiet
+
 #[derive(Clone, Debug)]
 pub struct AtMostOnceStore<S: Store> {
-    pub store: S,
-    pub tombstones: RefCell<HashSet<Cid>>,
+    store: S,
+    tombstones: RefCell<HashSet<Cid>>,
 }
 
 impl<S: Store> From<S> for AtMostOnceStore<S> {

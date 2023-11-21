@@ -137,6 +137,12 @@
               category = "test";
               command  = "${pkgs.cargo}/bin/cargo test";
             }
+            {
+              name     = "docs";
+              help     = "Open refreshed docs";
+              category = "dev";
+              command  = "${pkgs.cargo}/bin/cargo doc --open";
+            }
           ];
         };
 

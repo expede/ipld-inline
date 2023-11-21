@@ -1,107 +1,92 @@
+pub mod quiet;
+
 use crate::iterator::post_order::PostOrderIpldIter;
 use crate::store::traits::Store;
 use libipld::{cid::Cid, ipld::Ipld};
-use std::cell::RefCell;
-use std::clone::Clone;
-use std::collections::BTreeMap;
+use quiet::Quiet;
+use std::{cell::RefCell, clone::Clone, ops::ControlFlow};
 
 #[derive(Clone, Debug)]
 pub struct Inliner<'a, S: Store> {
-    po_cell: RefCell<PostOrderIpldIter>,
-    store: &'a S, // FIXME check clone performance
-    stack: Vec<Ipld>,
+    inliner: Quiet<'a, S>,
+    stuck_at: Option<Cid>,
 }
 
-impl<'a, S: Store + Clone> Inliner<'a, S> {
+impl<'a, S: Store> Inliner<'a, S> {
     pub fn new(ipld: Ipld, store: &'a S) -> Self {
-        Inliner {
+        let inliner = Quiet {
             po_cell: RefCell::new(PostOrderIpldIter::from(ipld)),
             stack: vec![],
             store,
+        };
+
+        Inliner {
+            inliner,
+            stuck_at: None,
         }
     }
 
-    pub fn quiet_last(&mut self) -> Option<Ipld> {
-        self.fold(None, |acc, result| match result {
-            Ok(ipld) => Some(ipld),
-            Err(stuck) => {
-                stuck.ignore();
-                acc
-            }
+    pub fn wants(&self) -> Option<Cid> {
+        self.stuck_at
+    }
+
+    pub fn next_until_stuck(&mut self) -> Option<Result<Ipld, Cid>> {
+        let found = self.try_fold(None, |_, result| match result {
+            Ok(_) => ControlFlow::Continue(Some(result)),
+            Err(_) => ControlFlow::Break(Some(result)),
+        });
+
+        match found {
+            ControlFlow::Break(opt_result) => opt_result,
+            ControlFlow::Continue(opt_result) => opt_result,
+        }
+    }
+
+    pub fn ignore(&mut self) -> Option<()> {
+        self.stuck_at.map(|cid| {
+            self.inliner.stack.push(Ipld::Link(cid));
+            self.stuck_at = None;
+        })
+    }
+
+    // FIXME don't 100% love this
+    pub fn resolve(&mut self, ipld: Ipld) -> Option<()> {
+        self.stuck_at.map(|_| {
+            self.inliner.stack.push(ipld);
+            self.stuck_at = None;
         })
     }
 }
 
-impl<'a, S: Store + Clone> Iterator for Inliner<'a, S> {
-    type Item = Result<Ipld, Stuck<'a, S>>;
+impl<'a, S: Store> From<Quiet<'a, S>> for Inliner<'a, S> {
+    fn from(inliner: Quiet<'a, S>) -> Self {
+        Inliner {
+            inliner,
+            stuck_at: None,
+        }
+    }
+}
+
+impl<'a, S: Store> From<Inliner<'a, S>> for Quiet<'a, S> {
+    fn from(inliner: Inliner<'a, S>) -> Self {
+        inliner.inliner
+    }
+}
+
+impl<'a, S: Store> Iterator for Inliner<'a, S> {
+    type Item = Result<Ipld, Cid>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        for node in self.po_cell.get_mut() {
-            match node {
-                Ipld::Link(cid) => {
-                    if let Ok(ipld) = self.store.get(&cid) {
-                        let mut inner = BTreeMap::new();
-                        inner.insert("link".to_string(), Ipld::Link(cid));
-                        inner.insert("data".to_string(), ipld.clone());
-
-                        let mut outer = BTreeMap::new();
-                        outer.insert("/".to_string(), Ipld::Map(inner));
-
-                        self.stack.push(Ipld::Map(outer));
-                    } else {
-                        return Some(Err(Stuck {
-                            need: cid,
-                            inliner: Box::new(self.clone()),
-                        }));
-                    }
-                }
-
-                Ipld::Map(btree) => {
-                    let keys = btree.keys();
-                    let vals = self.stack.split_off(self.stack.len() - keys.len());
-                    let new_btree = keys.cloned().zip(vals).collect();
-                    self.stack.push(Ipld::Map(new_btree));
-                }
-
-                Ipld::List(vec) => {
-                    let new_vec = self.stack.split_off(self.stack.len() - vec.len());
-                    self.stack.push(Ipld::List(new_vec));
-                }
-
-                node => {
-                    self.stack.push(node.clone());
-                }
-            }
+        if self.stuck_at.is_some() {
+            return None;
         }
 
-        let root = self
-            .stack
-            .pop()
-            .expect("should have exactly one item on the stack");
-
-        Some(Ok(root))
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Stuck<'a, S: Store + Clone> {
-    need: Cid,
-    inliner: Box<Inliner<'a, S>>,
-}
-
-impl<'a, S: Store + Clone> Stuck<'a, S> {
-    pub fn wants(&self) -> &Cid {
-        &self.need
-    }
-
-    pub fn resolve(self, ipld: Ipld) -> Option<Inliner<'a, S>> {
-        let mut il = *self.inliner;
-        il.stack.push(ipld);
-        Some(il)
-    }
-
-    pub fn ignore(self) -> Option<Inliner<'a, S>> {
-        let cid = self.need;
-        self.resolve(Ipld::Link(cid))
+        match self.inliner.next() {
+            Some(Err(cid)) => {
+                self.stuck_at = Some(cid);
+                Some(Err(cid))
+            }
+            otherwise => otherwise,
+        }
     }
 }

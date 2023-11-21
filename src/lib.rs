@@ -9,14 +9,14 @@ use crate::store::traits::Store;
 use libipld::{cid::Version, codec_impl::IpldCodec, Ipld};
 use multihash::Code::Sha2_256;
 
-pub fn inline<S: Store + Clone>(ipld: Ipld, store: &S) -> Ipld {
+pub fn inline(ipld: Ipld, store: &impl Store) -> Ipld {
     Inliner::new(ipld, store)
-        .quiet_last()
+        .last()
+        .expect("should have at least the `Ipld` that was passed in")
         .expect("should have at least the `Ipld` that was passed in")
 }
 
-pub fn extract<S: Store + Default>(ipld: Ipld) -> S {
-    let mut store: S = Default::default();
+pub fn extract<S: Store>(ipld: Ipld, store: &mut S) -> &S {
     store.extract(ipld, IpldCodec::DagCbor, &Sha2_256, Version::V1);
     store
 }
