@@ -1,10 +1,9 @@
-use crate::cid::{cid_of, CidError};
+use crate::cid;
 use crate::extractor::Extractor;
 use crate::inliner::at_most_once::AtMostOnce;
 use crate::inliner::exactly_once::ExactlyOnce;
 use crate::inliner::quiet::Quiet;
 use libipld::{
-    cid,
     cid::{Cid, Version},
     codec::{Codec, Encode},
     error::{BlockNotFound, UnsupportedCodec},
@@ -23,14 +22,14 @@ pub trait Store {
         &mut self,
         codec: C,
         digester: &D,
-        version: cid::Version,
+        version: Version,
         ipld: Ipld,
-    ) -> Result<(), CidError>
+    ) -> Result<(), cid::Error>
     where
         Ipld: Encode<C>,
     {
         // FIXME
-        let cid = cid_of(&ipld, codec, digester, version)?;
+        let cid = cid::new(&ipld, codec, digester, version)?;
         self.put_keyed(cid, ipld);
         Ok(())
     }
@@ -47,20 +46,22 @@ pub trait Store {
         Ok(buffer)
     }
 
-    fn try_inline<'a>(&'a self, ipld: Ipld) -> Result<Ipld, Cid> {
+    fn try_inline(&self, ipld: Ipld) -> Result<Ipld, Cid> {
         ExactlyOnce::new(ipld, self)
             .last()
             .expect("should have at least the `Ipld` that was passed in")
+            .clone()
     }
 
-    fn inline_at_most_once<'a>(&'a self, ipld: Ipld) -> Ipld {
+    fn inline_at_most_once(&self, ipld: Ipld) -> Ipld {
         Quiet::new(ipld, self)
             .last()
             .expect("should have at least the `Ipld` that was passed in")
             .expect("should have at least the `Ipld` that was passed in")
+            .clone()
     }
 
-    fn try_inline_exactly_once<'a>(&'a self, ipld: Ipld) -> Result<Ipld, Cid> {
+    fn try_inline_exactly_once(&self, ipld: Ipld) -> Result<Ipld, Cid> {
         // FIXME
         AtMostOnce::new(ipld, self)
             .last()

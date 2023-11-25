@@ -1,7 +1,7 @@
 use core::iter::Peekable;
 use libipld::ipld::Ipld;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Default, PartialEq, Clone)]
 pub struct PostOrderIpldIter {
     inbound: Vec<Ipld>,
     outbound: Vec<Ipld>,
@@ -34,7 +34,7 @@ impl Iterator for PostOrderIpldIter {
                 Some(Ipld::List(vector)) => {
                     self.outbound.push(Ipld::List(vector.clone()));
 
-                    for node in vector.iter() {
+                    for node in &vector {
                         self.inbound.push(node.clone());
                     }
                 }
@@ -52,7 +52,7 @@ impl Iterator for PostOrderIpldIter {
 /// use std::iter::Peekable;
 ///
 /// let dag = ipld!({"/": 123}); // Will put two items on the stack: [{"/": 123}, 123]
-/// let mut poii: PostOrderIpldIter = (&dag).into();
+/// let mut poii: PostOrderIpldIter = dag.into();
 /// poii.next(); // Use the lowest item
 ///
 /// assert_eq!(is_delimiter_next(&mut poii.peekable()), true);
@@ -113,7 +113,7 @@ mod tests {
         ];
 
         let mut observed: Vec<Ipld> = vec![];
-        for node in PostOrderIpldIter::from(&ipld) {
+        for node in PostOrderIpldIter::from(ipld) {
             observed.push(node.clone());
         }
 

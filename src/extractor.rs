@@ -1,9 +1,8 @@
-use crate::cid::cid_of;
+use crate::cid;
 use crate::iterator::post_order::{is_delimiter_next, PostOrderIpldIter};
 use core::iter::Peekable;
 use libipld::{
-    cid,
-    cid::Cid,
+    cid::{Cid, Version},
     codec::{Codec, Encode},
     ipld::Ipld,
 };
@@ -19,14 +18,14 @@ where
 
     codec: C,
     digester: &'a D,
-    cid_version: cid::Version,
+    cid_version: Version,
 }
 
 impl<'a, C: Codec, D: MultihashDigest<64>> Extractor<'a, C, D>
 where
     Ipld: Encode<C>,
 {
-    pub fn new(ipld: Ipld, codec: C, digester: &'a D, cid_version: cid::Version) -> Self {
+    pub fn new(ipld: Ipld, codec: C, digester: &'a D, cid_version: Version) -> Self {
         Extractor {
             iterator: <Ipld as Into<PostOrderIpldIter>>::into(ipld).peekable(),
             stack: vec![],
@@ -50,7 +49,7 @@ where
                 None => {
                     return self.stack.pop().map(|x| {
                         (
-                            cid_of(&x, self.codec, self.digester, self.cid_version).unwrap(),
+                            cid::new(&x, self.codec, self.digester, self.cid_version).unwrap(),
                             x,
                         )
                     });
@@ -72,7 +71,8 @@ where
                                 .expect("updated child node of 'data' should be on the stack");
 
                             let cid: Cid =
-                                cid_of(&node, self.codec, self.digester, self.cid_version).unwrap();
+                                cid::new(&node, self.codec, self.digester, self.cid_version)
+                                    .unwrap();
 
                             self.stack.push(Ipld::Link(cid));
                             return Some((cid, node));
@@ -156,7 +156,7 @@ mod tests {
     proptest! {
         #[test]
         fn identity_prop_test(MoreThanIpld(ipld) in any::<MoreThanIpld>()) {
-            let mut ext = Extractor::new(&ipld, DagCborCodec, Sha2_256, cid::Version::V1);
+            let mut ext = Extractor::new(ipld.clone(), DagCborCodec, &Sha2_256, Version::V1);
             prop_assert!(ext.next().unwrap().1 == ipld);
         }
     }
@@ -175,7 +175,7 @@ mod tests {
         expected.insert(cid, ipld.clone());
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(&ipld, DagCborCodec, Sha2_256, cid::Version::V1) {
+        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -187,7 +187,7 @@ mod tests {
         let ipld = ipld!({"/": {"data": [1, 2, 3]}});
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(&ipld, DagCborCodec, Sha2_256, cid::Version::V1) {
+        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -223,7 +223,7 @@ mod tests {
         let ipld = ipld!({"/": {"data": [1, 2, 3], "link": arr_cid}});
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(&ipld, DagCborCodec, Sha2_256, cid::Version::V1) {
+        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -239,7 +239,7 @@ mod tests {
         let ipld = ipld!([{"/": {"data": [1, 2, 3]}}]);
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(&ipld, DagCborCodec, Sha2_256, cid::Version::V1) {
+        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -275,7 +275,7 @@ mod tests {
         let ipld = ipld!([{"/": {"data": [1, 2, 3], "link": arr_cid}}]);
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(&ipld, DagCborCodec, Sha2_256, cid::Version::V1) {
+        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -314,7 +314,7 @@ mod tests {
         expected.insert(cid3, ipld!(cid2));
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(&ipld, DagCborCodec, Sha2_256, cid::Version::V1) {
+        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -356,7 +356,7 @@ mod tests {
         );
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(&ipld, DagCborCodec, Sha2_256, cid::Version::V1) {
+        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -419,7 +419,7 @@ mod tests {
         );
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(&ipld, DagCborCodec, Sha2_256, cid::Version::V1) {
+        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 

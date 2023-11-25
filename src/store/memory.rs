@@ -10,6 +10,14 @@ pub struct MemoryStore {
     store: BTreeMap<Cid, Ipld>,
 }
 
+impl MemoryStore {
+    pub const fn new() -> Self {
+        MemoryStore {
+            store: BTreeMap::new(),
+        }
+    }
+}
+
 impl From<BTreeMap<Cid, Ipld>> for MemoryStore {
     fn from(store: BTreeMap<Cid, Ipld>) -> Self {
         MemoryStore { store }
@@ -28,6 +36,6 @@ impl Store for MemoryStore {
     }
 
     fn put_keyed(&mut self, cid: Cid, ipld: Ipld) {
-        self.store.put_keyed(cid, ipld)
+        self.store.put_keyed(cid, ipld);
     }
 }

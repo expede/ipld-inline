@@ -1,11 +1,12 @@
+
 use crate::iterator::post_order::PostOrderIpldIter;
 use crate::store::traits::Store;
 use libipld::{cid::Cid, ipld::Ipld};
-use std::{cell::RefCell, clone::Clone, collections::BTreeMap};
+use std::{clone::Clone, collections::BTreeMap};
 
 #[derive(Clone, Debug)]
 pub struct Quiet<'a, S: Store + ?Sized> {
-    po_cell: RefCell<PostOrderIpldIter>,
+    po: PostOrderIpldIter,
     stack: Vec<Ipld>,
     store: &'a S,
 }
@@ -13,7 +14,7 @@ pub struct Quiet<'a, S: Store + ?Sized> {
 impl<'a, S: Store + ?Sized> Quiet<'a, S> {
     pub fn new(ipld: Ipld, store: &'a S) -> Self {
         Quiet {
-            po_cell: RefCell::new(PostOrderIpldIter::from(ipld)),
+            po: PostOrderIpldIter::from(ipld),
             stack: vec![],
             store,
         }
@@ -28,7 +29,7 @@ impl<'a, S: Store + ?Sized> Iterator for Quiet<'a, S> {
     type Item = Result<Ipld, Cid>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        for node in self.po_cell.get_mut() {
+        for node in &mut self.po {
             match node {
                 Ipld::Link(cid) => {
                     if let Ok(ipld) = self.store.get(&cid) {
@@ -47,7 +48,7 @@ impl<'a, S: Store + ?Sized> Iterator for Quiet<'a, S> {
 
                 Ipld::Map(btree) => {
                     let keys = btree.keys();
-                    let vals = self.stack.split_off(self.stack.len() - keys.len());
+                    let vals: Vec<Ipld> = self.stack.split_off(self.stack.len() - keys.len());
                     let new_btree = keys.cloned().zip(vals).collect();
                     self.stack.push(Ipld::Map(new_btree));
                 }
@@ -58,7 +59,7 @@ impl<'a, S: Store + ?Sized> Iterator for Quiet<'a, S> {
                 }
 
                 node => {
-                    self.stack.push(node.clone());
+                    self.stack.push(node);
                 }
             }
         }

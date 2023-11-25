@@ -114,6 +114,18 @@
               command  = "${pkgs.cargo}/bin/cargo clippy";
             }
             {
+              name     = "lint:pedantic";
+              help     = "Run Clippy pedantically";
+              category = "dev";
+              command  = "${pkgs.cargo}/bin/cargo clippy -- -W clippy::pedantic";
+            }
+            {
+              name     = "lint:fix";
+              help     = "Apply non-pendantic Clippy suggestions";
+              category = "dev";
+              command  = "${pkgs.cargo}/bin/cargo clippy --fix";
+            }
+            {
               name     = "watch:build";
               help     = "Rebuild on save";
               category = "watch";
@@ -124,6 +136,12 @@
               help     = "Lint on save";
               category = "watch";
               command  = "${pkgs.cargo}/bin/cargo watch --clear --exec clippy";
+            }
+            {
+              name     = "watch:lint:pedantic";
+              help     = "Pedantic lint on save";
+              category = "watch";
+              command  = "${pkgs.cargo}/bin/cargo watch --clear --exec 'clippy -- -W clippy::pedantic'";
             }
             {
               name     = "watch:test";
