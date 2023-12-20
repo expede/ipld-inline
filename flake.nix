@@ -62,6 +62,7 @@
 
         cargo-installs = [
           pkgs.cargo-bootimage
+          pkgs.cargo-criterion
           pkgs.cargo-deny
           pkgs.cargo-expand
           pkgs.cargo-outdated
@@ -82,13 +83,27 @@
             rust-toolchain
 
             pkgs.wasmtime
+            pkgs.sccache
             self.packages.${system}.irust
           ]
           ++ format-pkgs
           ++ cargo-installs
           ++ pkgs.lib.optionals pkgs.stdenv.isDarwin darwin-installs;
 
+          env = [
+            {
+              name  = "RUSTC_WRAPPER";
+              value =  "${pkgs.sccache}/bin/sccache";
+            }
+          ];
+
           commands = [
+            {
+              name     = "build";
+              help     = "[DEFAULT] Build for current native target";
+              category = "build";
+              command  = "build:native";
+            }
             {
               name     = "build:native";
               help     = "Build for current native target";
@@ -106,6 +121,18 @@
               help     = "Build for WASI";
               category = "build";
               command  = "${pkgs.cargo}/bin/cargo build --target wasm32-wasi";
+            }
+            {
+              name     = "bench";
+              help     = "Run Criterion benchmarks";
+              category = "dev";
+              command  = "${pkgs.cargo}/bin/cargo criterion";
+            }
+            {
+              name     = "bench:open";
+              help     = "Open Criterion benchmarks in browser";
+              category = "dev";
+              command  = "${pkgs.xdg-utils}/bin/xdg-open ./target/criterion/report/index.html";
             }
             {
               name     = "lint";
@@ -154,6 +181,12 @@
               help     = "Run Cargo tests";
               category = "test";
               command  = "${pkgs.cargo}/bin/cargo test";
+            }
+            {
+              name     = "test:docs";
+              help     = "Run Cargo doctests";
+              category = "test";
+              command  = "${pkgs.cargo}/bin/cargo test --doc";
             }
             {
               name     = "docs";

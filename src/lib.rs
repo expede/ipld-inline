@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 pub mod cid;
 pub mod extractor;
 pub mod inliner;

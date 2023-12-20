@@ -3,15 +3,15 @@ use crate::store::traits::Store;
 use libipld::{cid::Cid, ipld::Ipld};
 use std::{clone::Clone, collections::BTreeMap};
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Quiet<'a, S: Store + ?Sized> {
     po: PostOrderIpldIter,
     stack: Vec<Ipld>,
-    store: &'a S,
+    pub(crate) store: &'a mut S,
 }
 
 impl<'a, S: Store + ?Sized> Quiet<'a, S> {
-    pub fn new(ipld: Ipld, store: &'a S) -> Self {
+    pub fn new(ipld: Ipld, store: &'a mut S) -> Self {
         Quiet {
             po: PostOrderIpldIter::from(ipld),
             stack: vec![],

@@ -1,16 +1,16 @@
 use super::{exactly_once::ExactlyOnce, quiet::Quiet};
 use crate::store::traits::Store;
 use libipld::{cid::Cid, ipld::Ipld};
-use std::{clone::Clone, collections::HashSet};
+use std::collections::HashSet;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct AtMostOnce<'a, S: Store + ?Sized> {
     exactly_once: ExactlyOnce<'a, S>,
     seen: HashSet<Cid>,
 }
 
 impl<'a, S: Store + ?Sized> AtMostOnce<'a, S> {
-    pub fn new(ipld: Ipld, store: &'a S) -> Self {
+    pub fn new(ipld: Ipld, store: &'a mut S) -> Self {
         let exactly_once = ExactlyOnce::new(ipld, store);
         AtMostOnce {
             exactly_once,
