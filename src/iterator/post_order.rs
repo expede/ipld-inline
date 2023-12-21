@@ -68,6 +68,7 @@ pub fn is_delimiter_next(poii: &mut Peekable<PostOrderIpldIter>) -> bool {
 mod tests {
     use super::*;
     use libipld::{cid::CidGeneric, ipld};
+    use pretty_assertions::{assert_eq, assert_ne};
 
     #[test]
     fn poii_test() {

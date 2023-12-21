@@ -99,6 +99,18 @@
 
           commands = [
             {
+              name     = "release";
+              help     = "[DEFAULT] Release (optimized build) for current native target";
+              category = "release";
+              command  = "release:native";
+            }
+            {
+              name     = "release:native";
+              help     = "Release for current native target";
+              category = "release";
+              command  = "${pkgs.cargo}/bin/cargo build --release";
+            }
+            {
               name     = "build";
               help     = "[DEFAULT] Build for current native target";
               category = "build";

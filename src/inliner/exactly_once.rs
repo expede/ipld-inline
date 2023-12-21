@@ -119,6 +119,7 @@ impl<'a, S: Store + ?Sized> ExactlyOnce<'a, S> {
         })
     }
 
+    // FIXME
     pub fn tryme(&'a mut self) -> Result<(), Stuck<'a, S>> {
         self.last();
         match self.stuck_at {
@@ -154,7 +155,9 @@ mod tests {
     use super::*;
     use crate::store::memory::MemoryStore;
     use libipld::ipld;
+    use pretty_assertions::{assert_eq, assert_ne};
 
+    // FIXME
     #[test]
     fn happy_little_test() {
         let mut store = MemoryStore::new();

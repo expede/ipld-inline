@@ -113,10 +113,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use libipld::{cid::CidGeneric, ipld};
     use libipld_cbor::DagCborCodec;
     use multihash::Code::Sha2_256;
+    use pretty_assertions::{assert_eq, assert_ne};
     use proptest::prelude::*;
     use std::collections::BTreeMap;
 
