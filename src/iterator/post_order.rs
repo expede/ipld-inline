@@ -1,6 +1,8 @@
+//! Post-order [`Ipld`] iteration
 use core::iter::Peekable;
 use libipld::ipld::Ipld;
 
+/// A post-order [`Ipld`] iterator
 #[derive(Debug, Default, PartialEq, Clone)]
 pub struct PostOrderIpldIter {
     inbound: Vec<Ipld>,
@@ -68,7 +70,7 @@ pub fn is_delimiter_next(poii: &mut Peekable<PostOrderIpldIter>) -> bool {
 mod tests {
     use super::*;
     use libipld::{cid::CidGeneric, ipld};
-    use pretty_assertions::{assert_eq, assert_ne};
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn poii_test() {

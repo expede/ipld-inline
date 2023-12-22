@@ -1,16 +1,17 @@
+//! An in-memory [`Ipld`] store
 use super::traits::Store;
 use libipld::error::BlockNotFound;
 use libipld::{Cid, Ipld};
 use std::collections::BTreeMap;
 
-// More convenient to use and clearer to read than BTree
-
+/// A basic in-memory [`Ipld`] store
 #[derive(Clone, Debug, Default)]
 pub struct MemoryStore {
     store: BTreeMap<Cid, Ipld>,
 }
 
 impl MemoryStore {
+    /// Initialize an empty [`MemoryStore`]
     pub const fn new() -> Self {
         MemoryStore {
             store: BTreeMap::new(),

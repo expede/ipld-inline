@@ -1,3 +1,4 @@
+//! Strategies for decomposing inlined [`Ipld`] to a DAG
 use crate::cid;
 use crate::iterator::post_order::{is_delimiter_next, PostOrderIpldIter};
 use core::iter::Peekable;
@@ -8,6 +9,11 @@ use libipld::{
 };
 use multihash::MultihashDigest;
 
+// FIXME consider a newtype to mark inlined ipld as such. Can then wrap that with an `extract` etc
+
+/// The general [`Ipld`] extraction strategy
+///
+/// Converts Inline IPLD into "regular" [`Ipld`]. This does a series of graph nodes.
 #[derive(Clone, Debug)]
 pub struct Extractor<'a, C, D>
 where
@@ -25,11 +31,18 @@ impl<'a, C: Codec, D: MultihashDigest<64>> Extractor<'a, C, D>
 where
     Ipld: Encode<C>,
 {
+    /// Initialize an [`Extractor`]
+    ///
+    /// # Arguments
+    ///
+    /// * `ipld` - The inline [`Ipld`] to extract
+    /// * `codec` - The [`Codec`] to fall back to if the inline IPLD doesn't contain a [`Cid`]
+    /// * `digester` - The hash digest function to use if the inline IPLD doesn't contain a [`Cid`]
+    /// * `cid_version` - The [`Cid`] version to use if the inline IPLD doesn't contain a [`Cid`]
     pub fn new(ipld: Ipld, codec: C, digester: &'a D, cid_version: Version) -> Self {
         Extractor {
             iterator: <Ipld as Into<PostOrderIpldIter>>::into(ipld).peekable(),
             stack: vec![],
-
             codec,
             digester,
             cid_version,
@@ -116,7 +129,7 @@ mod tests {
     use libipld::{cid::CidGeneric, ipld};
     use libipld_cbor::DagCborCodec;
     use multihash::Code::Sha2_256;
-    use pretty_assertions::{assert_eq, assert_ne};
+    use pretty_assertions::assert_eq;
     use proptest::prelude::*;
     use std::collections::BTreeMap;
 

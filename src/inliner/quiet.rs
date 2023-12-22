@@ -1,3 +1,10 @@
+//! Naive inlining
+//!
+//! This inlining strategy tries its best, but:
+//! - Doesn't attempt to deduplicate DAGs
+//! - Doesn't stop if a [`Cid`] is not available in the attached [`Store`]
+
+// FIXME rename this module Naive
 use crate::iterator::post_order::PostOrderIpldIter;
 use crate::store::traits::Store;
 use libipld::{cid::Cid, ipld::Ipld};

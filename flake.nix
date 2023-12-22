@@ -1,5 +1,5 @@
 {
-  description = "ipld-inline";
+  description = "ipld_inline";
 
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-23.05";
@@ -76,7 +76,7 @@
 
       in rec {
         devShells.default = pkgs.devshell.mkShell {
-          name = "ipld-inline";
+          name = "ipld_inline";
           packages = [
             # For nightly rustfmt to be used instead of the rustfmt provided by `rust-toolchain`, it must appear first in the list
             # nightly-rustfmt

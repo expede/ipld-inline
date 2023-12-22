@@ -1,8 +1,12 @@
+//! Inlining each subgraph at most once (deduplicated)
 use super::{exactly_once::ExactlyOnce, quiet::Quiet};
 use crate::store::traits::Store;
 use libipld::{cid::Cid, ipld::Ipld};
 use std::collections::HashSet;
 
+/// [`Ipld`] inliner that only inlines a [`Cid`] once, if avalaible
+///
+/// If a subgraph isn't available by the required [`Cid`], it's merely skipped
 #[derive(Debug)]
 pub struct AtMostOnce<'a, S: Store + ?Sized> {
     exactly_once: ExactlyOnce<'a, S>,
@@ -10,10 +14,15 @@ pub struct AtMostOnce<'a, S: Store + ?Sized> {
 }
 
 impl<'a, S: Store + ?Sized> AtMostOnce<'a, S> {
+    /// Initialize a new [`AtMostOnce`] inliner
+    ///
+    /// # Arguments
+    ///
+    /// - `ipld` - The [`Ipld`] to inline
+    /// - `store` - The content addressed [`Store`] to draw graphs from
     pub fn new(ipld: Ipld, store: &'a mut S) -> Self {
-        let exactly_once = ExactlyOnce::new(ipld, store);
         AtMostOnce {
-            exactly_once,
+            exactly_once: ExactlyOnce::new(ipld, store),
             seen: HashSet::new(),
         }
     }

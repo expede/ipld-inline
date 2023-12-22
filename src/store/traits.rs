@@ -1,3 +1,4 @@
+//! Content-addressed store trait
 use crate::cid;
 use crate::extractor::Extractor;
 use crate::inliner::at_most_once::AtMostOnce;
@@ -14,7 +15,7 @@ use multihash::MultihashDigest;
 use std::collections::BTreeMap;
 use thiserror::Error;
 
-/// A trait for interacting with content addressed stores
+/// A trait describing inline/extract-capable content addressed stores
 pub trait Store {
     /// Retrieve a block by CID
     ///
@@ -164,6 +165,39 @@ pub trait Store {
         Ok(buffer)
     }
 
+    /// Try to inline all CIDs based on the contents of the [`Store`]
+    ///
+    /// # Arguments
+    ///
+    /// * `self` - The block store
+    /// * `ipld` - The [`Ipld`] to to attempt to inline
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use ipld_inline::store::traits::Store;
+    /// #
+    /// # use libipld::{ipld, cid::Version};
+    /// # use libipld_cbor::DagCborCodec;
+    /// # use multihash::Code::Sha2_256;
+    /// # use std::{collections::BTreeMap, str::FromStr};
+    /// #
+    /// let mut store = BTreeMap::new();
+    /// let inner_cid = store.put(ipld!([4, 5, 6]), DagCborCodec, &Sha2_256, Version::V1).unwrap();
+    ///
+    /// let observed = store.try_inline(ipld!({"a": 123, "b": inner_cid})).unwrap();
+    /// let expected = ipld!({
+    ///   "a": 123,
+    ///   "b": {
+    ///     "/": {
+    ///       "data": ipld!([4, 5, 6]),
+    ///       "link": inner_cid
+    ///     }
+    ///   }
+    /// });
+    ///
+    /// assert_eq!(observed, expected);
+    /// ```
     fn try_inline(&mut self, ipld: Ipld) -> Result<Ipld, Cid> {
         //FIXME attack of the clones, clippy recommends switching to borriwng the Ipld
         match ExactlyOnce::new(ipld.clone(), self).last() {
