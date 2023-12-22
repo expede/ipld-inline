@@ -10,7 +10,7 @@ use crate::store::traits::Store;
 use libipld::{cid::Cid, ipld::Ipld};
 use std::{clone::Clone, collections::BTreeMap};
 
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 pub struct Quiet<'a, S: Store + ?Sized> {
     po: PostOrderIpldIter,
     stack: Vec<Ipld>,

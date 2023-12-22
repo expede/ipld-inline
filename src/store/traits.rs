@@ -214,12 +214,13 @@ pub trait Store {
             .clone()
     }
 
-    fn try_inline_exactly_once(&mut self, ipld: Ipld) -> Result<Ipld, Cid> {
-        // FIXME
-        AtMostOnce::new(ipld, self)
-            .last()
-            .expect("should have at least the `Ipld` that was passed in")
-    }
+    // FIXME commenting out while debugging
+    // fn try_inline_exactly_once(&mut self, ipld: Ipld) -> Result<Ipld, Cid> {
+    //     // FIXME
+    //     AtMostOnce::new(ipld, self)
+    //         .last()
+    //         .expect("should have at least the `Ipld` that was passed in")
+    // }
 
     /// Extract all graphs from inlined IPLD and store them
     ///
