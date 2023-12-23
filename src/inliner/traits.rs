@@ -1,4 +1,4 @@
-use crate::store::traits::Store;
+use crate::{inline_ipld, store::traits::Store};
 use libipld::{ipld, Cid, Ipld};
 
 pub trait Inliner<'a> {
@@ -114,15 +114,11 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     /// assert_eq!(observed, Some(expected));
     /// ```
     pub fn stub(&'a mut self, ipld: &Ipld) -> &'a mut I {
-        self.inliner.stub(
-            &ipld!({ // FIXME break out a "inline chunk" helper. Maybe just `inline!`?
-                "/": {
-                    "data": ipld.clone(),
-                    "link": self.needs.clone()
-                }
-            }),
-        );
+        let dag = ipld.clone();
+        let link = self.needs.clone();
+        let inlined = inline_ipld!(link, dag);
 
+        self.inliner.stub(&inlined);
         self.inliner.skip() // TODO needs = None;
     }
 

@@ -11,8 +11,12 @@ pub const LINK_TAG: &'static str = "link";
 ///
 /// ## Unary
 ///
-/// ```ignore
-/// inline_ipld!(ipld: Ipld)
+/// ```
+/// # use crate::inline_ipld;
+/// # use libipld::ipld;
+/// # let ipld = ipld!("");
+/// #
+/// inline_ipld!(ipld)
 /// ```
 ///
 /// The unary variant omits the `"link"` field. Per the [spec], this causes the extracted
@@ -22,8 +26,15 @@ pub const LINK_TAG: &'static str = "link";
 ///
 /// ## Binary
 ///
-/// ```ignore
-/// inline_ipld!(cid: Cid, ipld: Ipld)
+/// ```no_run
+/// # use crate::inline_ipld;
+/// # use libipld::ipld;
+/// # use std::str::FromStr;
+/// #
+/// # let ipld = ipld!("");
+/// # let cid: Cid = FromStr::from_str("bafyreihscx57i276zr5pgnioa5omevods6eseu5h4mllmow6csasju6eqi").unwrap();
+/// #
+/// inline_ipld!(cid, ipld)
 /// ```
 ///
 /// The binary variant accepts an explicit [`Cid`][libipld::cid::Cid] parameter.
@@ -31,8 +42,22 @@ pub const LINK_TAG: &'static str = "link";
 ///
 /// ## Ternary
 ///
-/// ```ignore
-/// inline_ipld!(digester: MultihashDigest<64>, codec: Codec, ipld: Ipld)
+/// ```no_run
+/// # use crate::inline_ipld;
+/// # use libipld::ipld;
+/// # use multihash::Code::Sha2_256;
+/// # use libipld::{
+/// #     cid::Version,
+/// #     cbor::DagCborCodec,
+/// #     ipld,
+/// #     Ipld
+/// # };
+/// #
+/// # let ipld = ipld!("");
+/// # let digester = DagCborCodec;
+/// # let codec = Sha2_256;
+/// #
+/// inline_ipld!(digester, codec, ipld)
 /// ```
 ///
 /// The ternary variant calculates the correct `"link"` (at runtime) based on the configuration passed in.
@@ -41,8 +66,8 @@ pub const LINK_TAG: &'static str = "link";
 ///
 /// The following example includes all arities of `inline_ipld!`.
 ///
-/// ```
-/// # use ipld_inline::{ipld::*, inline_ipld};
+/// ```no_run
+/// # use ipld_inline::inline_ipld;
 /// # use ipld_inline::cid;
 /// # use multihash::Code::Sha2_256;
 /// # use libipld::{
@@ -88,28 +113,24 @@ pub const LINK_TAG: &'static str = "link";
 /// ```
 #[macro_export]
 macro_rules! inline_ipld {
-  ($ipld: tt) => {
-    ipld!({
-       DELIMIT_INLINE: {
-         DATA_TAG: ipld!($ipld),
-       }
-     })
+   ($ipld: tt) => {
+     ipld!({"/": {"data": ipld!($ipld)}})
    };
 
    ($cid: tt, $ipld: tt) => {
      ipld!({
-       DELIMIT_INLINE: {
-         DATA_TAG: ipld!($ipld),
-         LINK_TAG: Ipld::Link($cid)
+       "/": {
+         "data": ipld!($ipld),
+         "link": Ipld::Link($cid)
        }
      })
    };
 
    ($digester: tt, $codec: tt, $ipld: tt) => {
      ipld!({
-       DELIMIT_INLINE: {
-         DATA_TAG: ipld!($ipld),
-         LINK_TAG: Ipld::Link(cid::new(&ipld!($ipld), $digester, &$codec, Version::V1).unwrap())
+       "/": {
+         "data": ipld!($ipld),
+         "link": Ipld::Link(cid::new(&ipld!($ipld), $digester, &$codec, Version::V1).unwrap())
        }
      })
    };
