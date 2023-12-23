@@ -4,6 +4,7 @@
 
 #![warn(missing_docs)]
 
+pub mod ipld;
 pub mod cid;
 pub mod extractor;
 pub mod inliner;

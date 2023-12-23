@@ -72,6 +72,19 @@ impl<'a, S: Store + ?Sized> ExactlyOnce<'a, S> {
 //             },
 //         }
 //     }
+//
+//     // OLD VERSION
+//     pub fn run(&'a mut self) -> Option<Result<Ipld, Stuck<'a, S>>> {
+//         match self.last() {
+//             Some(Ok(ipld)) => Some(Ok(ipld)),
+//             Some(Err(cid)) => Some(Err(Stuck {
+//                 needs: cid,
+//                 iterator: self,
+//             })),
+//             None => None,
+//         }
+//     }
+// }
 // }
 
 // FIXME

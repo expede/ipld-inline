@@ -29,17 +29,6 @@ pub trait Inliner<'a> {
     //     /// ```
     //     /// FIXME the above can't compare in the eq
     //     /// FIXME show the err case
-    //     pub fn run(&'a mut self) -> Option<Result<Ipld, Stuck<'a, S>>> {
-    //         match self.last() {
-    //             Some(Ok(ipld)) => Some(Ok(ipld)),
-    //             Some(Err(cid)) => Some(Err(Stuck {
-    //                 needs: cid,
-    //                 iterator: self,
-    //             })),
-    //             None => None,
-    //         }
-    //     }
-    // }
     fn run(&'a mut self) -> Result<&Ipld, Stuck<'a, Self>>;
 
     // These are shared with Stuck... should that get extracted?

@@ -202,6 +202,18 @@
             }
             {
               name     = "docs";
+              help     = "[DEFAULT]: Open refreshed docs";
+              category = "dev";
+              command  = "docs:open";
+            }
+            {
+              name     = "docs:build";
+              help     = "Refresh the docs";
+              category = "dev";
+              command  = "${pkgs.cargo}/bin/cargo doc";
+            }
+            {
+              name     = "docs:open";
               help     = "Open refreshed docs";
               category = "dev";
               command  = "${pkgs.cargo}/bin/cargo doc --open";
