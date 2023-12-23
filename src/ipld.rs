@@ -1,3 +1,4 @@
+//! Helpers for building properly delimited and linked inline IPLD
 use libipld::{ipld, Ipld};
 
 pub const DELIMIT_INLINE: &'static str = "/";
@@ -11,12 +12,13 @@ pub const LINK_TAG: &'static str = "link";
 ///
 /// ## Unary
 ///
-/// ```
-/// # use crate::inline_ipld;
-/// # use libipld::ipld;
-/// # let ipld = ipld!("");
+/// ```no_run
+/// # use ipld_inline::{cid, inline_ipld};
+/// # use libipld::{ipld, Ipld};
 /// #
-/// inline_ipld!(ipld)
+/// # let ipld = Ipld::Null;
+/// #
+/// inline_ipld!(ipld);
 /// ```
 ///
 /// The unary variant omits the `"link"` field. Per the [spec], this causes the extracted
@@ -27,14 +29,14 @@ pub const LINK_TAG: &'static str = "link";
 /// ## Binary
 ///
 /// ```no_run
-/// # use crate::inline_ipld;
-/// # use libipld::ipld;
+/// # use ipld_inline::{cid, inline_ipld};
+/// # use libipld::{ipld, Ipld, Cid};
 /// # use std::str::FromStr;
 /// #
 /// # let ipld = ipld!("");
 /// # let cid: Cid = FromStr::from_str("bafyreihscx57i276zr5pgnioa5omevods6eseu5h4mllmow6csasju6eqi").unwrap();
 /// #
-/// inline_ipld!(cid, ipld)
+/// inline_ipld!(cid, ipld);
 /// ```
 ///
 /// The binary variant accepts an explicit [`Cid`][libipld::cid::Cid] parameter.
@@ -43,8 +45,7 @@ pub const LINK_TAG: &'static str = "link";
 /// ## Ternary
 ///
 /// ```no_run
-/// # use crate::inline_ipld;
-/// # use libipld::ipld;
+/// # use ipld_inline::{cid, inline_ipld};
 /// # use multihash::Code::Sha2_256;
 /// # use libipld::{
 /// #     cid::Version,
@@ -53,11 +54,11 @@ pub const LINK_TAG: &'static str = "link";
 /// #     Ipld
 /// # };
 /// #
-/// # let ipld = ipld!("");
 /// # let digester = DagCborCodec;
 /// # let codec = Sha2_256;
+/// # let ipld = Ipld::Null;
 /// #
-/// inline_ipld!(digester, codec, ipld)
+/// inline_ipld!(digester, codec, ipld);
 /// ```
 ///
 /// The ternary variant calculates the correct `"link"` (at runtime) based on the configuration passed in.
@@ -67,8 +68,7 @@ pub const LINK_TAG: &'static str = "link";
 /// The following example includes all arities of `inline_ipld!`.
 ///
 /// ```no_run
-/// # use ipld_inline::inline_ipld;
-/// # use ipld_inline::cid;
+/// # use ipld_inline::{cid, inline_ipld};
 /// # use multihash::Code::Sha2_256;
 /// # use libipld::{
 /// #     cid::Version,
