@@ -3,7 +3,7 @@ use crate::cid;
 use crate::extractor::Extractor;
 use crate::inliner::at_most_once::AtMostOnce;
 use crate::inliner::exactly_once::ExactlyOnce;
-use crate::inliner::quiet::Quiet;
+use crate::inliner::naive::Naive;
 use libipld::{
     cid::{Cid, Version},
     codec::{Codec, Encode},
@@ -206,21 +206,22 @@ pub trait Store {
         }
     }
 
-    fn inline_at_most_once(&mut self, ipld: Ipld) -> Ipld {
-        Quiet::new(ipld, self)
-            .last()
-            .expect("should have at least the `Ipld` that was passed in")
-            .expect("should have at least the `Ipld` that was passed in")
-            .clone()
-    }
-
-    // FIXME commenting out while debugging
-    // fn try_inline_exactly_once(&mut self, ipld: Ipld) -> Result<Ipld, Cid> {
-    //     // FIXME
-    //     AtMostOnce::new(ipld, self)
+    // FIXME
+    // fn inline_at_most_once(&mut self, ipld: Ipld) -> Ipld {
+    //     Naive::new(ipld, self)
     //         .last()
     //         .expect("should have at least the `Ipld` that was passed in")
+    //         .expect("should have at least the `Ipld` that was passed in")
+    //         .clone()
     // }
+
+    // FIXME commenting out while debugging
+    //   fn try_inline_exactly_once(&mut self, ipld: Ipld) -> Result<Ipld, Cid> {
+    //       // FIXME
+    //       AtMostOnce::new(ipld, self)
+    //           .last()
+    //           .expect("should have at least the `Ipld` that was passed in")
+    //   }
 
     /// Extract all graphs from inlined IPLD and store them
     ///

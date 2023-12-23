@@ -1,4 +1,7 @@
 //! Strategies for inlining [`Ipld`][libipld::ipld::Ipld]
+//!
+//! The primary interface for inlining is [`Inliner::run`]
 pub mod at_most_once;
 pub mod exactly_once;
-pub mod quiet;
+pub mod naive;
+pub mod traits;

@@ -4,22 +4,30 @@
 //! - Doesn't attempt to deduplicate DAGs
 //! - Doesn't stop if a [`Cid`] is not available in the attached [`Store`]
 
-// FIXME rename this module Naive
 use crate::iterator::post_order::PostOrderIpldIter;
 use crate::store::traits::Store;
 use libipld::{cid::Cid, ipld::Ipld};
 use std::{clone::Clone, collections::BTreeMap};
 
+/// Inline directly, without deduplication or stopping at missing nodes
+///
+/// More sophisticated inlining strategies are available in the [`Inliner`][ipld_inline::inliner] module
 #[derive(PartialEq, Debug)]
-pub struct Quiet<'a, S: Store + ?Sized> {
+pub struct Naive<'a, S: Store + ?Sized> {
     po: PostOrderIpldIter,
     stack: Vec<Ipld>,
     pub(crate) store: &'a mut S,
 }
 
-impl<'a, S: Store + ?Sized> Quiet<'a, S> {
+impl<'a, S: Store + ?Sized> Naive<'a, S> {
+    /// Initialize a new [`Naive`] inliner
+    ///
+    /// # Arguments
+    ///
+    /// - `ipld` - The [`Ipld`] to inline
+    /// - `store` - The content addressed [`Store`] to draw graphs from
     pub fn new(ipld: Ipld, store: &'a mut S) -> Self {
-        Quiet {
+        Naive {
             po: PostOrderIpldIter::from(ipld),
             stack: vec![],
             store,
@@ -31,7 +39,7 @@ impl<'a, S: Store + ?Sized> Quiet<'a, S> {
     }
 }
 
-impl<'a, S: Store + ?Sized> Iterator for Quiet<'a, S> {
+impl<'a, S: Store + ?Sized> Iterator for Naive<'a, S> {
     type Item = Result<Ipld, Cid>;
 
     fn next(&mut self) -> Option<Self::Item> {
