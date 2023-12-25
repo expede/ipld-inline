@@ -37,6 +37,21 @@
         "type": "github"
       }
     },
+    "nixos-unstable": {
+      "locked": {
+        "lastModified": 1703395344,
+        "narHash": "sha256-cAgNsKUbbOjm3s8NJwRa0YEgyLbTVQ5Y+z4SCUIRs4k=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "cb574470bb7e360016c254867f7734a95812b47f",
+        "type": "github"
+      },
+      "original": {
+        "id": "nixpkgs",
+        "ref": "nixos-unstable-small",
+        "type": "indirect"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1677383253,
@@ -55,16 +70,16 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1703351344,
-        "narHash": "sha256-9FEelzftkE9UaJ5nqxidaJJPEhe9TPhbypLHmc2Mysc=",
+        "lastModified": 1703200384,
+        "narHash": "sha256-q5j06XOsy0qHOarsYPfZYJPWbTbc8sryRxianlEPJN0=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "7790e078f8979a9fcd543f9a47427eeaba38f268",
+        "rev": "0b3d618173114c64ab666f557504d6982665d328",
         "type": "github"
       },
       "original": {
         "id": "nixpkgs",
-        "ref": "nixos-23.05",
+        "ref": "nixos-23.11",
         "type": "indirect"
       }
     },
@@ -72,6 +87,7 @@
       "inputs": {
         "devshell": "devshell",
         "flake-utils": "flake-utils",
+        "nixos-unstable": "nixos-unstable",
         "nixpkgs": "nixpkgs_2",
         "rust-overlay": "rust-overlay"
       }

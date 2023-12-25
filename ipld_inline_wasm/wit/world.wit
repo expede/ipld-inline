@@ -1,0 +1,6 @@
+package component:ipld-inline-wasm;
+
+/// An example world for the component to target.
+world lib {
+    export hello-world: func() -> string;
+}

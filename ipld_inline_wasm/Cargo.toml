@@ -1,0 +1,29 @@
+[package]
+name = "ipld_inline_wasm"
+version = "0.1.0"
+edition = "2021"
+
+authors.workspace = true
+license.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+async-std = {version = "1.12"}
+cargo-component-bindings = "0.6"
+
+[lib]
+crate-type = ["cdylib"]
+
+[package.metadata.component]
+package = "component:ipld-inline"
+
+[package.metadata.component.target]
+path = "wit"
+
+[package.metadata.component.dependencies]
+
+[profile.release]
+lto = true
+opt-level = 'z'

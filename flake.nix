@@ -2,7 +2,9 @@
   description = "ipld_inline";
 
   inputs = {
-    nixpkgs.url = "nixpkgs/nixos-23.05";
+    nixpkgs.url = "nixpkgs/nixos-23.11";
+    nixos-unstable.url = "nixpkgs/nixos-unstable-small";
+
     flake-utils.url = "github:numtide/flake-utils";
     devshell.url    = "github:numtide/devshell";
 
@@ -14,11 +16,12 @@
   };
 
   outputs = {
-    self,
-    nixpkgs,
-    flake-utils,
-    devshell,
-    rust-overlay,
+      self,
+      nixpkgs,
+      nixos-unstable,
+      flake-utils,
+      devshell,
+      rust-overlay,
   } @ inputs:
     flake-utils.lib.eachDefaultSystem (system:
       let
@@ -28,6 +31,10 @@
             devshell.overlays.default
             (import rust-overlay)
           ];
+        };
+
+        unstable = import nixos-unstable {
+          inherit system;
         };
 
         rust-toolchain =
@@ -62,7 +69,7 @@
 
         cargo-installs = [
           pkgs.cargo-bootimage
-          pkgs.cargo-component
+          unstable.cargo-component
           pkgs.cargo-criterion
           pkgs.cargo-deny
           pkgs.cargo-expand
@@ -83,7 +90,7 @@
             # nightly-rustfmt
             rust-toolchain
 
-            pkgs.wasmtime
+            unstable.wasmtime
             pkgs.binaryen
             pkgs.sccache
             self.packages.${system}.irust
@@ -128,7 +135,7 @@
               name     = "build:wasm";
               help     = "Build for wasm32-unknown-unknown";
               category = "build";
-              command  = "${pkgs.cargo}/bin/cargo build --target=wasm32-unknown-unknown";
+              command  = "${pkgs.cargo}/bin/cargo build -p ipld_inline_wasm --target=wasm32-unknown-unknown";
             }
             {
               name     = "build:wasi";
