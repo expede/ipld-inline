@@ -5,7 +5,7 @@ use libipld::{Cid, Ipld};
 use std::collections::BTreeMap;
 
 /// A basic in-memory [`Ipld`] store
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct MemoryStore {
     store: BTreeMap<Cid, Ipld>,
 }

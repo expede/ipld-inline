@@ -1,5 +1,5 @@
 //! Inlining each subgraph at most once (deduplicated)
-use super::{exactly_once::ExactlyOnce, naive::Naive};
+use super::{exactly_once::ExactlyOnce, naive::Naive, traits::*};
 use crate::store::traits::Store;
 use libipld::{cid::Cid, ipld::Ipld};
 use std::collections::HashSet;
@@ -58,22 +58,30 @@ impl<'a, S: Store> From<AtMostOnce<'a, S>> for Naive<'a, S> {
     }
 }
 
-// impl<'a, S: Store + ?Sized> Iterator for AtMostOnce<'a, S> {
-//     type Item = Result<Ipld, Cid>;
-//
-//     fn next(&mut self) -> Option<Self::Item> {
-//         if let Ok(stuck) = self.exactly_once.try_into() {
-//             if !self.seen.contains(&stuck.needs) {
-//                 return None;
-//             }
-//         }
-//
-//         match self.exactly_once.next()?.try_into() {
-//             Ok(Some(Ok(stuck))) => {
-//                 stuck.ignore();
-//                 Some(Err(stuck.needs))
-//             }
-//             otherwise => otherwise,
-//         }
-//     }
-// }
+impl<'a, S: Store + ?Sized> Iterator for AtMostOnce<'a, S> {
+    type Item = Result<Ipld, Cid>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.exactly_once.next()? {
+            Err(needs) => {
+                if self.seen.contains(&needs) {
+                    self.exactly_once.interject(&Ipld::Link(needs));
+                    Some(Ok(Ipld::Link(needs)))
+                } else {
+                    None
+                }
+            }
+            good => Some(good),
+        }
+    }
+}
+
+impl<'a, S: Store + ?Sized> Inliner<'a> for AtMostOnce<'a, S> {
+    fn store(&mut self, cid: &Cid, ipld: &Ipld) {
+        self.exactly_once.store(cid, ipld);
+    }
+
+    fn interject(&mut self, ipld: &Ipld) {
+        self.exactly_once.interject(ipld)
+    }
+}

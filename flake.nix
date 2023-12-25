@@ -62,6 +62,7 @@
 
         cargo-installs = [
           pkgs.cargo-bootimage
+          pkgs.cargo-component
           pkgs.cargo-criterion
           pkgs.cargo-deny
           pkgs.cargo-expand
@@ -83,6 +84,7 @@
             rust-toolchain
 
             pkgs.wasmtime
+            pkgs.binaryen
             pkgs.sccache
             self.packages.${system}.irust
           ]

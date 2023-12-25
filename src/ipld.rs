@@ -1,137 +1,152 @@
 //! Helpers for building properly delimited and linked inline IPLD
-use libipld::{ipld, Ipld};
+//!
+//! # Examples
+//!
+//! ```
+//! # use ipld_inline::{cid, ipld::*};
+//! # use multihash::Code::Sha2_256;
+//! # use libipld::{
+//! #     cid::Version,
+//! #     cbor::DagCborCodec,
+//! #     ipld,
+//! #     Ipld
+//! # };
+//! #
+//! let given_cid = cid::new(&ipld!([1,2,3]), DagCborCodec, &Sha2_256, Version::V1).unwrap();
+//! let calculated_cid = cid::new(&ipld!([4, 5, 6]), DagCborCodec, &Sha2_256, Version::V1).unwrap();
+//!
+//! let observed = ipld!({
+//!   "a": "foo",
+//!   "b": inline_ipld_inherit(ipld!({
+//!     "c": "bar",
+//!     "d": inline_ipld(given_cid, ipld!([1, 2, 3]))
+//!   })),
+//!   "e": inline_ipld_link(DagCborCodec, &Sha2_256, ipld!([4, 5, 6]))
+//! });
+//!
+//! assert_eq!(observed, ipld!(
+//!   {
+//!     "a": "foo",
+//!     "b": {
+//!       "/": {
+//!         // "link": omited
+//!         "data": {
+//!           "c": "bar",
+//!           "d": {"/": {"link": given_cid, "data": [1, 2, 3]}}
+//!         }
+//!       }
+//!     },
+//!     "e": {"/": {"link": calculated_cid, "data": [4, 5, 6]}
+//!     }
+//!   })
+//! );
+//! ```
+use crate::cid;
+use libipld::{
+    cid::Version,
+    codec::{Codec, Encode},
+    ipld, Cid, Ipld,
+};
+use multihash::MultihashDigest;
 
-pub const DELIMIT_INLINE: &'static str = "/";
-pub const DATA_TAG: &'static str = "data";
-pub const LINK_TAG: &'static str = "link";
-
-/// A helper for creating properly delimited inline IPLD
+/// Wrap some [`Ipld`] and manually associated [`Cid`] in an inline delimiter
 ///
-/// `inline_ipld!` automatically wraps the enclosed [`Ipld`] in the correct delimiters.
-/// It has three arities:
+/// To have the [`Cid`] calculated at runtime, use [`inline_ipld_link`].
+/// [`inline_ipld`] *does not* check that the [`Cid`] actually corresponds to the associated [`Ipld`].
 ///
-/// ## Unary
+/// # Arguments
 ///
-/// ```no_run
-/// # use ipld_inline::{cid, inline_ipld};
-/// # use libipld::{ipld, Ipld};
-/// #
-/// # let ipld = Ipld::Null;
-/// #
-/// inline_ipld!(ipld);
+/// * `cid` - The [`Cid`] for the `"link"` field
+/// * `ipld` - The [`Ipld`] to inline
+///
 /// ```
+/// # use ipld_inline::{cid, ipld::inline_ipld};
+/// # use libipld::{ipld, Ipld, Cid};
+/// # use std::str::FromStr;
+/// #
+/// let cid: Cid = FromStr::from_str("bafyreihscx57i276zr5pgnioa5omevods6eseu5h4mllmow6csasju6eqi").unwrap();
+/// assert_eq!(inline_ipld(cid, ipld!([1, 2, 3])), ipld!({
+///   "/": {
+///     "data": ipld!([1, 2, 3]),
+///     "link": cid
+///   }
+/// }));
+/// ```
+pub fn inline_ipld(cid: Cid, ipld: Ipld) -> Ipld {
+    ipld!({
+      "/": {
+        "data": ipld!(ipld),
+        "link": Ipld::Link(cid)
+      }
+    })
+}
+
+/// Create inline-delimited [`Ipld`], but omit the `"link"` field
 ///
-/// The unary variant omits the `"link"` field. Per the [spec], this causes the extracted
+/// `inline_ipld_inherit` wraps the enclosed [`Ipld`] in the correct delimiters.
+/// It omits the `"link"` field. Per the [spec], this causes the extracted
 /// IPLD link to inherit the coedec and CID encoding of its parent.
 ///
 /// [spec]: https://github.com/ucan-wg/ipld-inline-links
 ///
-/// ## Binary
+/// # Arguments
 ///
-/// ```no_run
-/// # use ipld_inline::{cid, inline_ipld};
-/// # use libipld::{ipld, Ipld, Cid};
-/// # use std::str::FromStr;
-/// #
-/// # let ipld = ipld!("");
-/// # let cid: Cid = FromStr::from_str("bafyreihscx57i276zr5pgnioa5omevods6eseu5h4mllmow6csasju6eqi").unwrap();
-/// #
-/// inline_ipld!(cid, ipld);
-/// ```
-///
-/// The binary variant accepts an explicit [`Cid`][libipld::cid::Cid] parameter.
-/// This *does not* check that the [`Cid`][libipld::cid::Cid] actually corresponds to the associated [`Ipld`].
-///
-/// ## Ternary
-///
-/// ```no_run
-/// # use ipld_inline::{cid, inline_ipld};
-/// # use multihash::Code::Sha2_256;
-/// # use libipld::{
-/// #     cid::Version,
-/// #     cbor::DagCborCodec,
-/// #     ipld,
-/// #     Ipld
-/// # };
-/// #
-/// # let digester = DagCborCodec;
-/// # let codec = Sha2_256;
-/// # let ipld = Ipld::Null;
-/// #
-/// inline_ipld!(digester, codec, ipld);
-/// ```
-///
-/// The ternary variant calculates the correct `"link"` (at runtime) based on the configuration passed in.
+/// * `ipld` - The [`Ipld`] to wrap in the inlined delimiter
 ///
 /// # Examples
 ///
-/// The following example includes all arities of `inline_ipld!`.
+/// ```
+/// # use ipld_inline::{cid, ipld::inline_ipld_inherit};
+/// # use libipld::{ipld, Ipld};
+/// #
+/// let observed = inline_ipld_inherit(ipld!([1, 2, 3]));
+/// assert_eq!(observed, ipld!({"/": {"data": ipld!([1, 2, 3])}}));
+/// ```
+pub fn inline_ipld_inherit(ipld: Ipld) -> Ipld {
+    ipld!({"/": {"data": ipld!(ipld)}})
+}
+
+/// Create inline-delimited [`Ipld`], and automatically calculate the [`Cid`]
 ///
-/// ```no_run
-/// # use ipld_inline::{cid, inline_ipld};
+/// Unlike [`inline_ipld`], [`inline_ipld_link`] calculates a correct `"link"` based on
+/// the codec and digest function passed in. It always uses to CIDv1.
+///
+/// # Arguments
+///
+/// * `codec` - The codec to encode the [`Ipld`] with when generating the [`Cid`]
+/// * `digester` - The hash function for the [`Cid`]
+/// * `ipld` - The [`Ipld`] to inline
+///
+/// # Examples
+///
+/// ```
+/// # use ipld_inline::{cid, ipld::inline_ipld_link};
+/// # use std::str::FromStr;
 /// # use multihash::Code::Sha2_256;
 /// # use libipld::{
 /// #     cid::Version,
 /// #     cbor::DagCborCodec,
 /// #     ipld,
-/// #     Ipld
+/// #     Ipld,
+/// #     Cid
 /// # };
 /// #
-/// let given_cid = cid::new(&ipld!([1,2,3]), DagCborCodec, &Sha2_256, Version::V1).unwrap();
-/// let calculated_cid = cid::new(&ipld!([4, 5, 6]), DagCborCodec, &Sha2_256, Version::V1).unwrap();
-///
-/// let observed = ipld!({
-///   "a": "foo",
-///   "b": inline_ipld!({ // Unary
-///     "c": "bar",
-///     "d": inline_ipld!(given_cid, [1, 2, 3]) // Binary
-///   }),
-///   "e": inline_ipld!(DagCborCodec, Sha2_256, [4, 5, 6]) // Ternary
-/// });
-///
-/// assert_eq!(observed, ipld!(
-///   {
-///     "a": "foo",
-///     "b": {
-///       "/": {
-///         // Unary omits the `"link"` field
-///         // "link": not here,
-///         "data": {
-///           "c": "bar",
-///           // Binary includes the given `"link"`
-///           //                  vvvvvvvvv
-///           "d": {"/": {"link": given_cid, "data": [1, 2, 3]}}
-///         }
-///       }
-///     },
-///     // Ternary uses the calculated `"link"`
-///     //                  vvvvvvvvvvvvvv
-///     "e": {"/": {"link": calculated_cid, "data": [4, 5, 6]}
-///     }
-///   })
-/// );
+/// let cid: Cid = FromStr::from_str("bafyreickxqyrg7hhhdm2z24kduovd4k4vvbmfmenzn7nc6pxg6qzjm2v44").unwrap();
+/// let observed = inline_ipld_link(DagCborCodec, &Sha2_256, ipld!([1, 2, 3]));
+/// assert_eq!(observed, ipld!({"/": {"data": ipld!([1,2, 3]), "link": cid}}));
 /// ```
-#[macro_export]
-macro_rules! inline_ipld {
-   ($ipld: tt) => {
-     ipld!({"/": {"data": ipld!($ipld)}})
-   };
-
-   ($cid: tt, $ipld: tt) => {
-     ipld!({
-       "/": {
-         "data": ipld!($ipld),
-         "link": Ipld::Link($cid)
-       }
-     })
-   };
-
-   ($digester: tt, $codec: tt, $ipld: tt) => {
-     ipld!({
-       "/": {
-         "data": ipld!($ipld),
-         "link": Ipld::Link(cid::new(&ipld!($ipld), $digester, &$codec, Version::V1).unwrap())
-       }
-     })
-   };
+pub fn inline_ipld_link<C: Codec, D: MultihashDigest<64>>(
+    codec: C,
+    digester: &D,
+    ipld: Ipld,
+) -> Ipld
+where
+    Ipld: Encode<C>,
+{
+    ipld!({
+      "/": {
+        "data": ipld.clone(),
+        "link": Ipld::Link(cid::new(&ipld, codec, digester, Version::V1).unwrap())
+      }
+    })
 }

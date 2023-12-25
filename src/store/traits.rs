@@ -1,9 +1,5 @@
 //! Content-addressed store trait
-use crate::cid;
-use crate::extractor::Extractor;
-use crate::inliner::at_most_once::AtMostOnce;
-use crate::inliner::exactly_once::ExactlyOnce;
-use crate::inliner::naive::Naive;
+use crate::{cid, extractor::Extractor, inliner::exactly_once::ExactlyOnce};
 use libipld::{
     cid::{Cid, Version},
     codec::{Codec, Encode},

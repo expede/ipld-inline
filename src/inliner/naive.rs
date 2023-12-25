@@ -12,7 +12,7 @@ use std::{clone::Clone, collections::BTreeMap};
 /// Inline directly, without deduplication or stopping at missing nodes
 ///
 /// More sophisticated inlining strategies are available in the [`Inliner`][ipld_inline::inliner] module
-#[derive(PartialEq, Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Naive<'a, S: Store + ?Sized> {
     po: PostOrderIpldIter,
     stack: Vec<Ipld>,
