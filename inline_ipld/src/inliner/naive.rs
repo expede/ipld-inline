@@ -4,15 +4,20 @@
 //! - Doesn't attempt to deduplicate DAGs
 //! - Doesn't stop if a [`Cid`] is not available in the attached [`Store`]
 
-use crate::iterator::post_order::PostOrderIpldIter;
-use crate::store::traits::Store;
+use crate::{
+    inliner::traits::Inliner, iterator::post_order::PostOrderIpldIter, store::traits::Store,
+};
 use libipld::{cid::Cid, ipld::Ipld};
 use std::{clone::Clone, collections::BTreeMap};
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 /// Inline directly, without deduplication or stopping at missing nodes
 ///
-/// More sophisticated inlining strategies are available in the [`Inliner`][ipld_inline::inliner] module
+/// More sophisticated inlining strategies are available in the [`Inliner`][inline_ipld::inliner] module
 #[derive(Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct Naive<'a, S: Store + ?Sized> {
     po: PostOrderIpldIter,
     stack: Vec<Ipld>,
@@ -36,6 +41,12 @@ impl<'a, S: Store + ?Sized> Naive<'a, S> {
 
     pub(super) fn push(&mut self, ipld: Ipld) {
         self.stack.push(ipld);
+    }
+}
+
+impl<'a, S: Store + ?Sized> Inliner for Naive<'a, S> {
+    fn store(&mut self, cid: &Cid, ipld: &Ipld) {
+        self.store
     }
 }
 

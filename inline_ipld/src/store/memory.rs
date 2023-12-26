@@ -4,8 +4,12 @@ use libipld::error::BlockNotFound;
 use libipld::{Cid, Ipld};
 use std::collections::BTreeMap;
 
+#[cfg(feature = "serde")]
+use serde::Serialize;
+
 /// A basic in-memory [`Ipld`] store
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct MemoryStore {
     store: BTreeMap<Cid, Ipld>,
 }

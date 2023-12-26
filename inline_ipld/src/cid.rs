@@ -21,7 +21,7 @@ use thiserror::Error;
 /// # Examples
 ///
 /// ```
-/// # use ipld_inline::cid;
+/// # use inline_ipld::cid;
 /// # use libipld::{ipld, cid::Version};
 /// # use libipld_cbor::DagCborCodec;
 /// # use multihash::Code::Sha2_256;

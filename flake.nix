@@ -1,5 +1,5 @@
 {
-  description = "ipld_inline";
+  description = "inline_ipld";
 
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-23.11";
@@ -84,16 +84,20 @@
 
       in rec {
         devShells.default = pkgs.devshell.mkShell {
-          name = "ipld_inline";
+          name = "inline_ipld";
           packages = [
             # For nightly rustfmt to be used instead of the rustfmt provided by `rust-toolchain`, it must appear first in the list
             # nightly-rustfmt
             rust-toolchain
+            self.packages.${system}.irust
+            pkgs.sccache
 
             unstable.wasmtime
+            unstable.nodejs_20
             pkgs.binaryen
-            pkgs.sccache
-            self.packages.${system}.irust
+
+            pkgs.wasm-pack
+            pkgs.chromedriver
           ]
           ++ format-pkgs
           ++ cargo-installs
@@ -117,8 +121,15 @@
               name     = "release:native";
               help     = "Release for current native target";
               category = "release";
-              command  = "${pkgs.cargo}/bin/cargo build --release";
+              command  = "${pkgs.cargo}/bin/cargo build --release -p inline_ipld";
             }
+            {
+              name     = "release:wasm";
+              help     = "Release for current native target";
+              category = "release";
+              command  = "${pkgs.cargo}/bin/cargo build --release -p inline_ipld_wasm";
+            }
+            # Build
             {
               name     = "build";
               help     = "[DEFAULT] Build for current native target";
@@ -129,13 +140,13 @@
               name     = "build:native";
               help     = "Build for current native target";
               category = "build";
-              command  = "${pkgs.cargo}/bin/cargo build";
+              command  = "${pkgs.cargo}/bin/cargo build -p inline_ipld";
             }
             {
               name     = "build:wasm";
               help     = "Build for wasm32-unknown-unknown";
               category = "build";
-              command  = "${pkgs.cargo}/bin/cargo build -p ipld_inline_wasm --target=wasm32-unknown-unknown";
+              command  = "${pkgs.cargo}/bin/cargo build -p inline_ipld_wasm --target=wasm32-unknown-unknown";
             }
             {
               name     = "build:wasi";
@@ -143,18 +154,20 @@
               category = "build";
               command  = "${pkgs.cargo}/bin/cargo build --target wasm32-wasi";
             }
+            # Bench
             {
-              name     = "bench";
-              help     = "Run Criterion benchmarks";
+              name     = "bench:native";
+              help     = "Run native Criterion benchmarks";
               category = "dev";
-              command  = "${pkgs.cargo}/bin/cargo criterion";
+              command  = "${pkgs.cargo}/bin/cargo criterion -p inline_ipld";
             }
             {
-              name     = "bench:open";
-              help     = "Open Criterion benchmarks in browser";
+              name     = "bench:native:open";
+              help     = "Open native Criterion benchmarks in browser";
               category = "dev";
               command  = "${pkgs.xdg-utils}/bin/xdg-open ./target/criterion/report/index.html";
             }
+            # Lint
             {
               name     = "lint";
               help     = "Run Clippy";
@@ -173,11 +186,18 @@
               category = "dev";
               command  = "${pkgs.cargo}/bin/cargo clippy --fix";
             }
+            # Watch
             {
-              name     = "watch:build";
-              help     = "Rebuild on save";
+              name     = "watch:build:native";
+              help     = "Rebuild native target on save";
               category = "watch";
-              command  = "${pkgs.cargo}/bin/cargo watch --clear";
+              command  = "${pkgs.cargo}/bin/cargo watch --clear -C ./inline_ipld";
+            }
+            {
+              name     = "watch:build:wasm";
+              help     = "Rebuild native target on save";
+              category = "watch";
+              command  = "${pkgs.cargo}/bin/cargo watch --clear --features=serde -C ./inline_ipld_wasm";
             }
             {
               name     = "watch:lint";
@@ -192,16 +212,41 @@
               command  = "${pkgs.cargo}/bin/cargo watch --clear --exec 'clippy -- -W clippy::pedantic'";
             }
             {
-              name     = "watch:test";
+              name     = "watch:test:native";
               help     = "Run all tests on save";
               category = "watch";
-              command  = "${pkgs.cargo}/bin/cargo watch --clear --exec test";
+              command  = "${pkgs.cargo}/bin/cargo watch --clear --workdir ./inline_ipld --exec test";
             }
+            # Test
             {
               name     = "test:all";
               help     = "Run Cargo tests";
               category = "test";
-              command  = "${pkgs.cargo}/bin/cargo test";
+              command  = "test:native && test:docs && test:wasm";
+            }
+            {
+              name     = "test:native";
+              help     = "Run Cargo tests for native target";
+              category = "test";
+              command  = "${pkgs.cargo}/bin/cargo test -p inline_ipld";
+            }
+            {
+              name     = "test:wasm";
+              help     = "Run wasm-pack tests on all targets";
+              category = "test";
+              command  = "test:wasm:node && test:wasm:chrome";
+            }
+            {
+              name     = "test:wasm:nodejs";
+              help     = "Run wasm-pack tests in Node.js";
+              category = "test";
+              command  = "${pkgs.wasm-pack}/bin/wasm-pack test --node inline_ipld_wasm";
+            }
+            {
+              name     = "test:wasm:chrome";
+              help     = "Run wasm-pack tests in headless Chrome";
+              category = "test";
+              command  = "${pkgs.wasm-pack}/bin/wasm-pack test --headless --chrome inline_ipld_wasm";
             }
             {
               name     = "test:docs";
@@ -209,6 +254,7 @@
               category = "test";
               command  = "${pkgs.cargo}/bin/cargo test --doc";
             }
+            # Docs
             {
               name     = "docs";
               help     = "[DEFAULT]: Open refreshed docs";

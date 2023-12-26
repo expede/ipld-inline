@@ -1,5 +1,5 @@
 //! Content-addressed store trait
-use crate::{cid, extractor::Extractor, inliner::exactly_once::ExactlyOnce};
+use crate::{cid, extractor::Extractor, ipld::inlined::InlineIpld};
 use libipld::{
     cid::{Cid, Version},
     codec::{Codec, Encode},
@@ -23,7 +23,7 @@ pub trait Store {
     /// # Examples
     ///
     /// ```
-    /// # use ipld_inline::store::traits::Store;
+    /// # use inline_ipld::store::traits::Store;
     /// # use std::{collections::BTreeMap, str::FromStr};
     /// # use multihash::Code::Sha2_256;
     /// # use libipld::{
@@ -54,7 +54,7 @@ pub trait Store {
     /// # Examples
     ///
     /// ```
-    /// # use ipld_inline::store::traits::Store;
+    /// # use inline_ipld::store::traits::Store;
     /// # use libipld::{cid, ipld};
     /// # use std::{collections::BTreeMap, str::FromStr};
     /// #
@@ -83,7 +83,7 @@ pub trait Store {
     /// # Examples
     ///
     /// ```
-    /// # use ipld_inline::store::traits::Store;
+    /// # use inline_ipld::store::traits::Store;
     /// # use std::{collections::BTreeMap, str::FromStr};
     /// # use multihash::Code::Sha2_256;
     /// # use libipld::{
@@ -134,7 +134,7 @@ pub trait Store {
     /// # Examples
     ///
     /// ```
-    /// #  use ipld_inline::store::traits::Store;
+    /// #  use inline_ipld::store::traits::Store;
     /// #  use std::{collections::BTreeMap, str::FromStr};
     /// #  use multihash::Code::Sha2_256;
     /// #  use libipld::{
@@ -161,64 +161,6 @@ pub trait Store {
         Ok(buffer)
     }
 
-    /// Try to inline all CIDs based on the contents of the [`Store`]
-    ///
-    /// # Arguments
-    ///
-    /// * `self` - The block store
-    /// * `ipld` - The [`Ipld`] to to attempt to inline
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use ipld_inline::store::traits::Store;
-    /// #
-    /// # use libipld::{ipld, cid::Version};
-    /// # use libipld_cbor::DagCborCodec;
-    /// # use multihash::Code::Sha2_256;
-    /// # use std::{collections::BTreeMap, str::FromStr};
-    /// #
-    /// let mut store = BTreeMap::new();
-    /// let inner_cid = store.put(ipld!([4, 5, 6]), DagCborCodec, &Sha2_256, Version::V1).unwrap();
-    ///
-    /// let observed = store.try_inline(ipld!({"a": 123, "b": inner_cid})).unwrap();
-    /// let expected = ipld!({
-    ///   "a": 123,
-    ///   "b": {
-    ///     "/": {
-    ///       "data": ipld!([4, 5, 6]),
-    ///       "link": inner_cid
-    ///     }
-    ///   }
-    /// });
-    ///
-    /// assert_eq!(observed, expected);
-    /// ```
-    fn try_inline(&mut self, ipld: Ipld) -> Result<Ipld, Cid> {
-        //FIXME attack of the clones, clippy recommends switching to borriwng the Ipld
-        match ExactlyOnce::new(ipld.clone(), self).last() {
-            None => Ok(ipld.clone()),
-            Some(result) => result.clone(),
-        }
-    }
-
-    // FIXME
-    // fn inline_at_most_once(&mut self, ipld: Ipld) -> Ipld {
-    //     Naive::new(ipld, self)
-    //         .last()
-    //         .expect("should have at least the `Ipld` that was passed in")
-    //         .expect("should have at least the `Ipld` that was passed in")
-    //         .clone()
-    // }
-
-    // FIXME commenting out while debugging
-    //   fn try_inline_exactly_once(&mut self, ipld: Ipld) -> Result<Ipld, Cid> {
-    //       // FIXME
-    //       AtMostOnce::new(ipld, self)
-    //           .last()
-    //           .expect("should have at least the `Ipld` that was passed in")
-    //   }
-
     /// Extract all graphs from inlined IPLD and store them
     ///
     /// # Arguments
@@ -232,7 +174,7 @@ pub trait Store {
     /// # Examples
     ///
     /// ```
-    /// # use ipld_inline::store::traits::Store;
+    /// # use inline_ipld::store::traits::Store;
     /// #
     /// # use libipld::{ipld, cid::Version};
     /// # use libipld_cbor::DagCborCodec;
@@ -257,7 +199,7 @@ pub trait Store {
     /// ```
     fn extract<C: Codec, D: MultihashDigest<64>>(
         &mut self,
-        ipld: Ipld,
+        ipld: InlineIpld,
         codec: C,
         digester: &D,
         cid_version: Version,
@@ -267,6 +209,16 @@ pub trait Store {
         for (cid, dag) in Extractor::new(ipld, codec, digester, cid_version) {
             self.put_keyed(cid, dag);
         }
+    }
+}
+
+impl Store for BTreeMap<Cid, Ipld> {
+    fn get(&self, cid: &Cid) -> Result<&Ipld, BlockNotFound> {
+        self.get(cid).ok_or(BlockNotFound(*cid))
+    }
+
+    fn put_keyed(&mut self, cid: Cid, ipld: Ipld) {
+        self.insert(cid, ipld);
     }
 }
 
@@ -301,15 +253,5 @@ impl PartialEq for GetRawError {
             // libipld::error::Error is existentially quantified, and not constrained with PartialEq, so false
             _ => false,
         }
-    }
-}
-
-impl Store for BTreeMap<Cid, Ipld> {
-    fn get(&self, cid: &Cid) -> Result<&Ipld, BlockNotFound> {
-        self.get(cid).ok_or(BlockNotFound(*cid))
-    }
-
-    fn put_keyed(&mut self, cid: Cid, ipld: Ipld) {
-        self.insert(cid, ipld);
     }
 }

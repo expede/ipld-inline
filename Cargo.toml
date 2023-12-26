@@ -1,10 +1,21 @@
 [workspace]
 resolver = "2"
 members = [
-    "ipld_inline",
-    "ipld_inline_wasm",
+    "inline_ipld",
+    "inline_ipld_wasm",
 ]
 
 [workspace.package]
 authors = ["Brooklyn Zelenka <hello@brooklynzelenka.com>"]
+edition = "2021"
 license = "Apache-2.0"
+
+
+# Speedup build on macOS
+# See https://blog.rust-lang.org/2021/03/25/Rust-1.51.0.html#splitting-debug-information
+[profile.dev]
+split-debuginfo = "unpacked"
+
+[profile.release]
+lto = true
+opt-level = 'z'

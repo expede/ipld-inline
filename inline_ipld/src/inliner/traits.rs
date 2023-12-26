@@ -1,26 +1,27 @@
 //! Traits for inlining [`Ipld`]
-use crate::ipld::inline_ipld;
+use crate::ipld::inlined::InlineIpld;
+use crate::store::traits::Store;
 use libipld::{Cid, Ipld};
 
 /// A trait for inlining [`Ipld`]
 pub trait Inliner<'a>: Iterator<Item = Result<Ipld, Cid>> {
     // These are shared with Stuck... should that get extracted?
 
-    /// Store some [`Ipld`] in the [`Inliner`]'s state
-    ///
-    /// This is useful for deduplication, avoiding [`Stuck`] states, and so on
-    ///
-    /// # Arguments
-    ///
-    /// * `self` - The [`Inliner`]
-    /// * `cid` - The [`Cid`] to use as a key. It's relationship to `ipld` is not checked.
-    /// * `ipld` - The [`Ipld`] to store
-    ///
-    /// # Examples
-    ///
-    /// FIXME
-    /// # use pretty_assertions::assert_eq;
-    fn store(&mut self, cid: &Cid, ipld: &Ipld);
+    // /// Store some [`Ipld`] in the [`Inliner`]'s state
+    // ///
+    // /// This is useful for deduplication, avoiding [`Stuck`] states, and so on
+    // ///
+    // /// # Arguments
+    // ///
+    // /// * `self` - The [`Inliner`]
+    // /// * `cid` - The [`Cid`] to use as a key. It's relationship to `ipld` is not checked.
+    // /// * `ipld` - The [`Ipld`] to store
+    // ///
+    // /// # Examples
+    // ///
+    // /// FIXME write doctest
+    // /// # use pretty_assertions::assert_eq;
+    // fn store(&mut self, cid: &Cid, ipld: &Ipld);
 
     /// Push some [`Ipld`] into the processing queue state of the [`Inliner`]
     ///
@@ -34,7 +35,7 @@ pub trait Inliner<'a>: Iterator<Item = Result<Ipld, Cid>> {
     ///
     /// # Examples
     ///
-    /// FIXME
+    /// FIXME write doctest
     /// # use pretty_assertions::assert_eq;
     fn interject(&mut self, ipld: &Ipld); // NOTE TO SELF: in definition, set `needs = None`
 
@@ -43,7 +44,7 @@ pub trait Inliner<'a>: Iterator<Item = Result<Ipld, Cid>> {
     /// # Examples
     ///
     /// ```
-    /// # use ipld_inline::{
+    /// # use inline_ipld::{
     /// #   inliner::exactly_once::ExactlyOnce,
     /// #   store::{
     /// #     traits::Store,
@@ -65,10 +66,11 @@ pub trait Inliner<'a>: Iterator<Item = Result<Ipld, Cid>> {
     /// ```
     ///
     /// FIXME show the err case
-    fn run(&'a mut self) -> Option<Result<Ipld, Stuck<'a, Self>>> {
-        let result = self.last()?;
-        let lifted = result.map_err(|needs| self.stuck_at(needs));
-        Some(lifted)
+    fn run(&'a mut self, store: &dyn Store) -> Option<Result<InlineIpld, Stuck<'a, Self>>> {
+        match self.last()? {
+            Ok(ipld) => Some(Ok(InlineIpld::already_inlined(ipld))),
+            Err(needs) => Some(Err(self.stuck_at(needs))),
+        }
     }
 
     /// Manually convert an [`Inliner`] to a [`Stuck`]
@@ -81,7 +83,7 @@ pub trait Inliner<'a>: Iterator<Item = Result<Ipld, Cid>> {
     /// # Examples
     ///
     /// ```
-    /// # use ipld_inline::{
+    /// # use inline_ipld::{
     /// #   inliner::{
     /// #     exactly_once::ExactlyOnce,
     /// #     traits::{Inliner, Stuck}
@@ -128,7 +130,7 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     /// # Examples
     ///
     /// ```
-    /// # use ipld_inline::{
+    /// # use inline_ipld::{
     /// #   inliner::exactly_once::ExactlyOnce,
     /// #   store::{
     /// #     traits::Store,
@@ -165,7 +167,7 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     /// # Examples
     ///
     /// ```
-    /// # use ipld_inline::{
+    /// # use inline_ipld::{
     /// #   inliner::exactly_once::ExactlyOnce,
     /// #   store::{
     /// #     traits::Store,
@@ -189,7 +191,7 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     /// ```
     pub fn stub(&'a mut self, ipld: &Ipld) -> &'a mut I {
         self.inliner
-            .interject(&inline_ipld(self.needs.clone(), ipld.clone()));
+            .interject(&InlineIpld::wrap(self.needs.clone(), ipld.clone()).into());
 
         self.inliner
     }
@@ -201,7 +203,7 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     /// # Examples
     ///
     /// ```
-    /// # use ipld_inline::{
+    /// # use inline_ipld::{
     /// #   inliner::exactly_once::ExactlyOnce,
     /// #   store::{
     /// #     traits::Store,

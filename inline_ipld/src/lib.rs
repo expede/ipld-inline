@@ -1,4 +1,4 @@
-//! `ipld_inline` is an implementation of [`ucan-wg/ipld-inline-links`]
+//! `inline_ipld` is an implementation of [`ucan-wg/ipld-inline-links`]
 //!
 //! [`ucan-wg/ipld-inline-links`]: https://github.com/ucan-wg/ipld-inline-links
 

@@ -1,6 +1,9 @@
 //! Strategies for decomposing inlined [`Ipld`] to a DAG
-use crate::cid;
-use crate::iterator::post_order::{is_delimiter_next, PostOrderIpldIter};
+use crate::{
+    cid,
+    ipld::inlined::InlineIpld,
+    iterator::post_order::{is_delimiter_next, PostOrderIpldIter},
+};
 use core::iter::Peekable;
 use libipld::{
     cid::{Cid, Version},
@@ -8,8 +11,6 @@ use libipld::{
     ipld::Ipld,
 };
 use multihash::MultihashDigest;
-
-// FIXME consider a newtype to mark inlined ipld as such. Can then wrap that with an `extract` etc
 
 /// The general [`Ipld`] extraction strategy
 ///
@@ -39,9 +40,9 @@ where
     /// * `codec` - The [`Codec`] to fall back to if the inline IPLD doesn't contain a [`Cid`]
     /// * `digester` - The hash digest function to use if the inline IPLD doesn't contain a [`Cid`]
     /// * `cid_version` - The [`Cid`] version to use if the inline IPLD doesn't contain a [`Cid`]
-    pub fn new(ipld: Ipld, codec: C, digester: &'a D, cid_version: Version) -> Self {
+    pub fn new(inline_ipld: InlineIpld, codec: C, digester: &'a D, cid_version: Version) -> Self {
         Extractor {
-            iterator: <Ipld as Into<PostOrderIpldIter>>::into(ipld).peekable(),
+            iterator: <Ipld as Into<PostOrderIpldIter>>::into(inline_ipld.into()).peekable(),
             stack: vec![],
             codec,
             digester,
@@ -169,7 +170,7 @@ mod tests {
     proptest! {
         #[test]
         fn identity_prop_test(MoreThanIpld(ipld) in any::<MoreThanIpld>()) {
-            let mut ext = Extractor::new(ipld.clone(), DagCborCodec, &Sha2_256, Version::V1);
+            let mut ext = Extractor::new(ipld.clone().into(), DagCborCodec, &Sha2_256, Version::V1);
             prop_assert!(ext.next().unwrap().1 == ipld);
         }
     }
@@ -188,7 +189,7 @@ mod tests {
         expected.insert(cid, ipld.clone());
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(ipld.into(), DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -197,10 +198,15 @@ mod tests {
 
     #[test]
     fn store_single_top_test() {
-        let ipld = ipld!({"/": {"data": [1, 2, 3]}});
+        let arr_cid: Cid = CidGeneric::try_from(
+            "bafyreickxqyrg7hhhdm2z24kduovd4k4vvbmfmenzn7nc6pxg6qzjm2v44".to_string(),
+        )
+        .unwrap();
+
+        let inline = InlineIpld::wrap(arr_cid, ipld!([1, 2, 3]));
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -233,10 +239,10 @@ mod tests {
         )
         .unwrap();
 
-        let ipld = ipld!({"/": {"data": [1, 2, 3], "link": arr_cid}});
+        let inline = InlineIpld::wrap(arr_cid, ipld!([1, 2, 3]));
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -252,7 +258,7 @@ mod tests {
         let ipld = ipld!([{"/": {"data": [1, 2, 3]}}]);
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(ipld.into(), DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 

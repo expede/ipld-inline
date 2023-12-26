@@ -2,8 +2,12 @@
 use core::iter::Peekable;
 use libipld::ipld::Ipld;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// A post-order [`Ipld`] iterator
 #[derive(Debug, Default, PartialEq, Clone)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct PostOrderIpldIter {
     inbound: Vec<Ipld>,
     outbound: Vec<Ipld>,
@@ -49,7 +53,7 @@ impl Iterator for PostOrderIpldIter {
 /// # Examples
 ///
 /// ```
-/// use ipld_inline::iterator::post_order::{PostOrderIpldIter, is_delimiter_next};
+/// use inline_ipld::iterator::post_order::{PostOrderIpldIter, is_delimiter_next};
 /// use libipld::ipld;
 /// use std::iter::Peekable;
 ///
