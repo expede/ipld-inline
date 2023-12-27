@@ -1,7 +1,7 @@
 //! Traits for inlining [`Ipld`]
-use crate::ipld::inlined::InlineIpld;
-use crate::store::traits::Store;
+use crate::{ipld::inlined::InlineIpld, store::traits::Store};
 use libipld::{Cid, Ipld};
+use std::ops::DerefMut;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -47,10 +47,7 @@ pub trait Inliner<'a> {
     /// let mut inliner = AtLeastOnce::new(ipld!({"a": 1, "b": missing_cid}));
     /// assert!(inliner.run(&store).unwrap().is_err());
     /// ```
-    fn run<S: Store + ?Sized>(
-        &'a mut self,
-        store: &S,
-    ) -> Option<Result<InlineIpld, Stuck<'a, Self>>>;
+    fn run<S: Store + ?Sized>(self, store: &S) -> Option<Result<InlineIpld, Stuck<'a, Self>>>;
 
     /// Manually convert an [`Inliner`] to a [`Stuck`]
     ///
@@ -84,10 +81,13 @@ pub trait Inliner<'a> {
     /// let mut inliner = AtLeastOnce::new(Ipld::Null);
     /// assert_eq!(inliner.stuck_at(cid).needs, cid);
     /// ```
-    fn stuck_at(&'a mut self, needs: &'a Cid) -> Stuck<'a, Self> {
+    fn stuck_at(self, needs: &'a Cid) -> Stuck<'a, Self>
+    where
+        Self: Sized,
+    {
         Stuck {
             needs,
-            inliner: self,
+            inliner: Box::new(self),
         }
     }
 }
@@ -98,12 +98,12 @@ pub trait Inliner<'a> {
 #[derive(PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(Desasassaerialize, Serialize))]
 pub struct Stuck<'a, I: Inliner<'a> + ?Sized> {
-    pub(crate) inliner: &'a mut I,
+    pub(crate) inliner: Box<I>,
 
     needs: &'a Cid,
 }
 
-impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
+impl<'a, I: Inliner<'a>> Stuck<'a, I> {
     /// Get the [`Cid`] required for the [`Inliner`] to continue
     pub fn needs(&self) -> &'a Cid {
         self.needs
@@ -142,7 +142,7 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     /// // The IPLD is now stored
     /// assert_eq!(store.get(&cid).unwrap(), &ipld!([1, 2, 3]));
     /// ```
-    pub fn resolve<S: Store + ?Sized>(&'a mut self, ipld: Ipld, store: &mut S) -> &'a mut I {
+    pub fn resolve<S: Store + ?Sized>(self, ipld: Ipld, store: &mut S) -> Box<I> {
         store.put_keyed(self.needs.clone(), ipld.clone());
         self.stub(ipld)
     }
@@ -176,8 +176,9 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     ///
     /// assert_eq!(observed.unwrap(), expected);
     /// ```
-    pub fn stub(&'a mut self, ipld: Ipld) -> &'a mut I {
+    pub fn stub(mut self, ipld: Ipld) -> Box<I> {
         self.inliner
+            .deref_mut()
             .resolve(InlineIpld::wrap(self.needs.clone(), ipld).into());
 
         self.inliner
@@ -213,8 +214,11 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     ///   assert_eq!(result.unwrap().unwrap(), expected);
     /// }
     /// ```
-    pub fn ignore(&'a mut self) -> &'a mut I {
-        self.inliner.resolve(Ipld::Link(self.needs.clone()));
+    pub fn ignore(mut self) -> Box<I> {
+        self.inliner
+            .deref_mut()
+            .resolve(Ipld::Link(self.needs.clone()));
+
         self.inliner
     }
 }

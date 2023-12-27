@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct AtMostOnce<'a> {
-    at_least_once: &'a mut AtLeastOnce<'a>,
+    at_least_once: AtLeastOnce<'a>,
     seen: HashSet<Cid>,
 }
 
@@ -67,20 +67,14 @@ impl<'a> Inliner<'a> for AtMostOnce<'a> {
         self.at_least_once.resolve(ipld)
     }
 
-    fn run<S: Store + ?Sized>(
-        &'a mut self,
-        store: &S,
-    ) -> Option<Result<InlineIpld, Stuck<'a, Self>>> {
+    // FIXME by ref?
+    fn run<S: Store + ?Sized>(self, store: &S) -> Option<Result<InlineIpld, Stuck<'a, Self>>> {
         match self.at_least_once.run(store)? {
             Ok(inline_ipld) => Some(Ok(inline_ipld)),
-            Err(mut stuck) => {
+            Err(stuck) => {
                 if self.seen.contains(stuck.needs()) {
-                    let foo: &'a mut AtLeastOnce<'a> = stuck.ignore();
-                    let inliner: AtMostOnce<'a> = foo.clone().into(); // FIXME
-                    let result: Option<Result<InlineIpld, Stuck<'a, Self>>> =
-                        inliner.clone().run(store);
-
-                    result
+                    let inliner: Self = (*stuck.ignore()).into();
+                    inliner.run(store)
                 } else {
                     None
                 }

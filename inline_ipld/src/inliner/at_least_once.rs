@@ -56,10 +56,7 @@ impl<'a> Inliner<'a> for AtLeastOnce<'a> {
         self.needs = None;
     }
 
-    fn run<S: Store + ?Sized>(
-        &'a mut self,
-        store: &S,
-    ) -> Option<Result<InlineIpld, Stuck<'a, Self>>> {
+    fn run<S: Store + ?Sized>(mut self, store: &S) -> Option<Result<InlineIpld, Stuck<'a, Self>>> {
         for node in &mut self.po {
             match node {
                 Ipld::Link(cid) => {
