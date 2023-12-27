@@ -7,7 +7,7 @@ use libipld::{Cid, Ipld};
 use serde::{Deserialize, Serialize};
 
 /// A trait for inlining [`Ipld`]
-pub trait Inliner<'a>: Iterator<Item = Ipld> {
+pub trait Inliner<'a> {
     /// Unblock a stuck [`Iterator`].
     ///
     /// This is generally achieved by pushing some [`Ipld`] into the [`Inliner`]'s processing queue.
@@ -84,7 +84,7 @@ pub trait Inliner<'a>: Iterator<Item = Ipld> {
     /// let mut inliner = AtLeastOnce::new(Ipld::Null);
     /// assert_eq!(inliner.stuck_at(cid).needs, cid);
     /// ```
-    fn stuck_at(&'a mut self, needs: Cid) -> Stuck<'a, Self> {
+    fn stuck_at(&'a mut self, needs: &'a Cid) -> Stuck<'a, Self> {
         Stuck {
             needs,
             inliner: self,
@@ -98,13 +98,17 @@ pub trait Inliner<'a>: Iterator<Item = Ipld> {
 #[derive(PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(Desasassaerialize, Serialize))]
 pub struct Stuck<'a, I: Inliner<'a> + ?Sized> {
-    inliner: &'a mut I,
+    pub(crate) inliner: &'a mut I,
 
-    /// The [`Cid`] required for the [`Inliner`] to continue
-    pub needs: Cid,
+    needs: &'a Cid,
 }
 
 impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
+    /// Get the [`Cid`] required for the [`Inliner`] to continue
+    pub fn needs(&self) -> &'a Cid {
+        self.needs
+    }
+
     /// Fill the missig [`Ipld`] in-place, and add it to the [`Store`]
     ///
     /// # Examples
@@ -139,7 +143,7 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     /// assert_eq!(store.get(&cid).unwrap(), &ipld!([1, 2, 3]));
     /// ```
     pub fn resolve<S: Store + ?Sized>(&'a mut self, ipld: Ipld, store: &mut S) -> &'a mut I {
-        store.put_keyed(self.needs, ipld.clone());
+        store.put_keyed(self.needs.clone(), ipld.clone());
         self.stub(ipld)
     }
 

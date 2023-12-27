@@ -8,13 +8,14 @@ use serde::{Deserialize, Serialize};
 /// A post-order [`Ipld`] iterator
 #[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-pub struct PostOrderIpldIter {
-    inbound: Vec<Ipld>,
-    outbound: Vec<Ipld>,
+pub struct PostOrderIpldIter<'a> {
+    inbound: Vec<&'a Ipld>,
+    outbound: Vec<&'a Ipld>,
 }
 
-impl From<Ipld> for PostOrderIpldIter {
-    fn from(ipld: Ipld) -> Self {
+impl<'a> PostOrderIpldIter<'a> {
+    /// Initialize a new [`PostOrderIpldIter`]
+    pub fn new(ipld: &'a Ipld) -> Self {
         PostOrderIpldIter {
             inbound: vec![ipld],
             outbound: vec![],
@@ -22,27 +23,32 @@ impl From<Ipld> for PostOrderIpldIter {
     }
 }
 
-impl Iterator for PostOrderIpldIter {
-    type Item = Ipld;
+impl<'a> From<&'a Ipld> for PostOrderIpldIter<'a> {
+    fn from(ipld: &'a Ipld) -> Self {
+        PostOrderIpldIter::new(ipld)
+    }
+}
+
+impl<'a> Iterator for PostOrderIpldIter<'a> {
+    type Item = &'a Ipld;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            dbg!(self.clone());
             match self.inbound.pop() {
                 None => return self.outbound.pop(),
-                Some(Ipld::Map(btree)) => {
-                    self.outbound.push(Ipld::Map(btree.clone()));
+                Some(map @ Ipld::Map(btree)) => {
+                    self.outbound.push(map);
 
-                    for node in btree.clone().values() {
-                        self.inbound.push(node.clone());
+                    for node in btree.values() {
+                        self.inbound.push(node);
                     }
                 }
 
-                Some(Ipld::List(vector)) => {
-                    self.outbound.push(Ipld::List(vector.clone()));
+                Some(list @ Ipld::List(vector)) => {
+                    self.outbound.push(list);
 
-                    for node in &vector {
-                        self.inbound.push(node.clone());
+                    for node in vector {
+                        self.inbound.push(node);
                     }
                 }
                 Some(node) => self.outbound.push(node),
@@ -64,7 +70,7 @@ impl Iterator for PostOrderIpldIter {
 ///
 /// assert_eq!(is_delimiter_next(&mut poii.peekable()), true);
 /// ```
-pub fn is_delimiter_next(poii: &mut Peekable<PostOrderIpldIter>) -> bool {
+pub fn is_delimiter_next<'a>(poii: &mut Peekable<PostOrderIpldIter<'a>>) -> bool {
     match poii.peek() {
         Some(Ipld::Map(next_btree)) => next_btree.keys().eq(["/"].iter()),
         _ => false,

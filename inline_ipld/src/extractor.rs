@@ -11,6 +11,7 @@ use libipld::{
     ipld::Ipld,
 };
 use multihash::MultihashDigest;
+use std::collections::btree_map::{BTreeMap, Keys};
 
 /// The general [`Ipld`] extraction strategy
 ///
@@ -20,7 +21,7 @@ pub struct Extractor<'a, C, D>
 where
     D: MultihashDigest<64>,
 {
-    iterator: Peekable<PostOrderIpldIter>,
+    iterator: Peekable<PostOrderIpldIter<'a>>,
     stack: Vec<Ipld>,
 
     codec: C,
@@ -40,9 +41,14 @@ where
     /// * `codec` - The [`Codec`] to fall back to if the inline IPLD doesn't contain a [`Cid`]
     /// * `digester` - The hash digest function to use if the inline IPLD doesn't contain a [`Cid`]
     /// * `cid_version` - The [`Cid`] version to use if the inline IPLD doesn't contain a [`Cid`]
-    pub fn new(inline_ipld: InlineIpld, codec: C, digester: &'a D, cid_version: Version) -> Self {
+    pub fn new(
+        inline_ipld: &'a InlineIpld,
+        codec: C,
+        digester: &'a D,
+        cid_version: Version,
+    ) -> Self {
         Extractor {
-            iterator: <Ipld as Into<PostOrderIpldIter>>::into(inline_ipld.into()).peekable(),
+            iterator: PostOrderIpldIter::new(inline_ipld.into()).peekable(),
             stack: vec![],
             codec,
             digester,
@@ -51,7 +57,7 @@ where
     }
 }
 
-impl<C: Codec, D: MultihashDigest<64>> Iterator for Extractor<'_, C, D>
+impl<'a, C: Codec, D: MultihashDigest<64>> Iterator for Extractor<'a, C, D>
 where
     Ipld: Encode<C>,
 {
@@ -68,12 +74,14 @@ where
                         )
                     });
                 }
+
                 Some(Ipld::List(inner_list)) => {
                     let substack = self.stack.split_off(self.stack.len() - inner_list.len());
                     self.stack.push(Ipld::List(substack));
                 }
+
                 Some(Ipld::Map(btree)) => {
-                    let keys: Vec<&String> = btree.keys().collect();
+                    let keys: Keys<'_, String, Ipld> = btree.keys();
 
                     if btree.get("data").is_some() {
                         if keys.len() == 1 && is_delimiter_next(&mut self.iterator) {
@@ -82,11 +90,10 @@ where
                             let node = self
                                 .stack
                                 .pop()
-                                .expect("updated child node of 'data' should be on the stack");
+                                .expect("updated child node of 'data' should be on the stack"); // FIXME
 
-                            let cid: Cid =
-                                cid::new(&node, self.codec, self.digester, self.cid_version)
-                                    .unwrap();
+                            let cid = cid::new(&node, self.codec, self.digester, self.cid_version)
+                                .unwrap();
 
                             self.stack.push(Ipld::Link(cid));
                             return Some((cid, node));
@@ -111,9 +118,12 @@ where
                     }
 
                     let substack: Vec<Ipld> = self.stack.split_off(self.stack.len() - keys.len());
+                    let inner_map: BTreeMap<String, Ipld> = keys
+                        .zip(substack)
+                        .map(|(s, i)| (s.clone(), i.clone()))
+                        .collect();
 
-                    self.stack
-                        .push(Ipld::Map(keys.into_iter().cloned().zip(substack).collect()));
+                    self.stack.push(Ipld::Map(inner_map));
                 }
 
                 Some(node) => {

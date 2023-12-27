@@ -32,6 +32,12 @@ impl From<InlineIpld> for Ipld {
     }
 }
 
+impl<'a> From<&'a InlineIpld> for &'a Ipld {
+    fn from(inline: &'a InlineIpld) -> &'a Ipld {
+        &inline.ipld
+    }
+}
+
 impl InlineIpld {
     /// Wrap some [`Ipld`] and manually associated [`Cid`] in an inline delimiter
     ///
@@ -56,7 +62,7 @@ impl InlineIpld {
     ///   }
     /// }));
     /// ```
-    pub fn wrap(cid: Cid, ipld: Ipld) -> InlineIpld {
+    pub fn wrap(cid: Cid, ipld: Ipld) -> Self {
         InlineIpld {
             ipld: ipld!({
               "/": {
@@ -88,7 +94,7 @@ impl InlineIpld {
     /// let observed = InlineIpld::wrap_inherit_link(ipld!([1, 2, 3]));
     /// assert_eq!(observed, ipld!({"/": {"data": ipld!([1, 2, 3])}}));
     /// ```
-    pub fn wrap_inherit_link(ipld: Ipld) -> InlineIpld {
+    pub fn wrap_inherit_link(ipld: Ipld) -> Self {
         InlineIpld {
             ipld: ipld!({"/": {"data": ipld!(ipld)}}),
         }
@@ -170,7 +176,7 @@ impl InlineIpld {
     /// let observed = InlineIpld::attest(ready.clone());
     /// assert_eq!(observed, ready)
     /// ```
-    pub fn attest(ipld: Ipld) -> InlineIpld {
+    pub fn attest(ipld: Ipld) -> Self {
         InlineIpld { ipld }
     }
 }

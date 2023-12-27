@@ -199,14 +199,14 @@ pub trait Store {
     /// ```
     fn extract<C: Codec, D: MultihashDigest<64>>(
         &mut self,
-        ipld: InlineIpld,
+        inline_ipld: &InlineIpld,
         codec: C,
         digester: &D,
         cid_version: Version,
     ) where
         Ipld: Encode<C>,
     {
-        for (cid, dag) in Extractor::new(ipld, codec, digester, cid_version) {
+        for (cid, dag) in Extractor::new(inline_ipld, codec, digester, cid_version) {
             self.put_keyed(cid, dag);
         }
     }

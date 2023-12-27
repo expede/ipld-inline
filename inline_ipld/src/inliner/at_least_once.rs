@@ -18,23 +18,15 @@ use serde::{Deserialize, Serialize};
 /// In general, you should prefer the use of the [`Inliner`] interface, over [`Iterator`].
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-pub struct AtLeastOnce {
-    po: PostOrderIpldIter,
+pub struct AtLeastOnce<'a> {
+    po: PostOrderIpldIter<'a>,
     stack: Vec<Ipld>,
-    needs: Option<Cid>,
+    needs: Option<&'a Cid>,
 }
 
-impl AtLeastOnce {
-    // FIXME pass by ref?
+impl<'a> AtLeastOnce<'a> {
     /// Initialize a new [`AtLeastOnce`] inliner
-    pub fn new(ipld: Ipld) -> Self {
-        ipld.into()
-    }
-}
-
-impl From<Ipld> for AtLeastOnce {
-    // FIXME pass by ref?
-    fn from(ipld: Ipld) -> Self {
+    pub fn new(ipld: &'a Ipld) -> Self {
         AtLeastOnce {
             po: PostOrderIpldIter::from(ipld),
             stack: vec![],
@@ -43,8 +35,14 @@ impl From<Ipld> for AtLeastOnce {
     }
 }
 
-impl Iterator for AtLeastOnce {
-    type Item = Ipld;
+impl<'a> From<&'a Ipld> for AtLeastOnce<'a> {
+    fn from(ipld: &'a Ipld) -> Self {
+        AtLeastOnce::new(ipld)
+    }
+}
+
+impl<'a> Iterator for AtLeastOnce<'a> {
+    type Item = &'a Ipld;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.needs?;
@@ -52,8 +50,7 @@ impl Iterator for AtLeastOnce {
     }
 }
 
-impl<'a> Inliner<'a> for AtLeastOnce {
-    // FIXME just rename as something closer to `resolve` or `unstick`?
+impl<'a> Inliner<'a> for AtLeastOnce<'a> {
     fn resolve(&mut self, ipld: Ipld) {
         self.stack.push(ipld);
         self.needs = None;
@@ -68,7 +65,7 @@ impl<'a> Inliner<'a> for AtLeastOnce {
                 Ipld::Link(cid) => {
                     if let Ok(ipld) = store.get(&cid) {
                         let mut inner = BTreeMap::new();
-                        inner.insert("link".to_string(), Ipld::Link(cid));
+                        inner.insert("link".to_string(), Ipld::Link(*cid));
                         inner.insert("data".to_string(), ipld.clone());
 
                         let mut outer = BTreeMap::new();
@@ -83,17 +80,19 @@ impl<'a> Inliner<'a> for AtLeastOnce {
                 Ipld::Map(btree) => {
                     let keys = btree.keys();
                     let vals: Vec<Ipld> = self.stack.split_off(self.stack.len() - keys.len());
-                    let new_btree = keys.cloned().zip(vals).collect();
+                    let new_btree = keys.zip(vals).map(|(k, v)| (k.clone(), v)).collect();
+
                     self.stack.push(Ipld::Map(new_btree));
                 }
 
                 Ipld::List(vec) => {
                     let new_vec = self.stack.split_off(self.stack.len() - vec.len());
+
                     self.stack.push(Ipld::List(new_vec));
                 }
 
-                node => {
-                    self.stack.push(node);
+                node_ref => {
+                    self.stack.push(node_ref.clone());
                 }
             }
         }

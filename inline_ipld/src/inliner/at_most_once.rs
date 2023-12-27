@@ -18,14 +18,14 @@ use serde::{Deserialize, Serialize};
 /// In general, you should prefer the use of the [`Inliner`] interface, over [`Iterator`].
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-pub struct AtMostOnce {
-    at_least_once: AtLeastOnce,
+pub struct AtMostOnce<'a> {
+    at_least_once: &'a mut AtLeastOnce<'a>,
     seen: HashSet<Cid>,
 }
 
-impl AtMostOnce {
+impl<'a> AtMostOnce<'a> {
     /// Initialize a new [`AtMostOnce`] inliner
-    pub fn new(ipld: Ipld) -> Self {
+    pub fn new(ipld: &'a Ipld) -> Self {
         AtMostOnce {
             at_least_once: AtLeastOnce::new(ipld),
             seen: HashSet::new(),
@@ -33,14 +33,14 @@ impl AtMostOnce {
     }
 }
 
-impl From<Ipld> for AtMostOnce {
-    fn from(ipld: Ipld) -> Self {
+impl<'a> From<&'a Ipld> for AtMostOnce<'a> {
+    fn from(ipld: &'a Ipld) -> Self {
         AtMostOnce::new(ipld)
     }
 }
 
-impl From<AtLeastOnce> for AtMostOnce {
-    fn from(at_least_once: AtLeastOnce) -> Self {
+impl<'a> From<AtLeastOnce<'a>> for AtMostOnce<'a> {
+    fn from(at_least_once: AtLeastOnce<'a>) -> Self {
         AtMostOnce {
             at_least_once,
             seen: HashSet::new(),
@@ -48,21 +48,21 @@ impl From<AtLeastOnce> for AtMostOnce {
     }
 }
 
-impl From<AtMostOnce> for AtLeastOnce {
-    fn from(at_most_once: AtMostOnce) -> Self {
+impl<'a> From<AtMostOnce<'a>> for AtLeastOnce<'a> {
+    fn from(at_most_once: AtMostOnce<'a>) -> Self {
         at_most_once.at_least_once
     }
 }
 
-impl Iterator for AtMostOnce {
-    type Item = Ipld;
+impl<'a> Iterator for AtMostOnce<'a> {
+    type Item = &'a Ipld;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.at_least_once.next()
     }
 }
 
-impl<'a> Inliner<'a> for AtMostOnce {
+impl<'a> Inliner<'a> for AtMostOnce<'a> {
     fn resolve(&mut self, ipld: Ipld) {
         self.at_least_once.resolve(ipld)
     }
@@ -71,14 +71,16 @@ impl<'a> Inliner<'a> for AtMostOnce {
         &'a mut self,
         store: &S,
     ) -> Option<Result<InlineIpld, Stuck<'a, Self>>> {
-        let result = self.at_least_once.run(store)?;
-        match result {
-            Ok(inline) => Some(Ok(inline)),
-            Err(Stuck { needs, .. }) => {
-                if self.seen.contains(&needs) {
-                    self.at_least_once.resolve(Ipld::Link(needs));
-                    let inline = InlineIpld::attest(Ipld::Link(needs));
-                    Some(Ok(inline))
+        match self.at_least_once.run(store)? {
+            Ok(inline_ipld) => Some(Ok(inline_ipld)),
+            Err(mut stuck) => {
+                if self.seen.contains(stuck.needs()) {
+                    let foo: &'a mut AtLeastOnce<'a> = stuck.ignore();
+                    let inliner: AtMostOnce<'a> = foo.clone().into(); // FIXME
+                    let result: Option<Result<InlineIpld, Stuck<'a, Self>>> =
+                        inliner.clone().run(store);
+
+                    result
                 } else {
                     None
                 }
