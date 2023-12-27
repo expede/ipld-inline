@@ -1,87 +1,88 @@
-//! Inlining each subgraph at most once (deduplicated)
-use super::{at_least_once::AtLeastOnce, naive::Naive, traits::*};
-use crate::store::traits::Store;
+//! Inline each subgraph at _most_ once (with deduplication)
+use super::{
+    at_least_once::AtLeastOnce,
+    traits::{Inliner, Stuck},
+};
+use crate::{ipld::inlined::InlineIpld, store::traits::Store};
 use libipld::{cid::Cid, ipld::Ipld};
 use std::collections::HashSet;
 
-/// [`Ipld`] inliner that only inlines a [`Cid`] once, if avalaible
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+/// [`Ipld`] inliner that only inlines a [`Cid`] at most once, if avalaible
 ///
-/// If a subgraph isn't available by the required [`Cid`], it's merely skipped
-#[derive(Debug)]
-pub struct AtMostOnce<'a, S: Store + ?Sized> {
-    exactly_once: AtLeastOnce<'a, S>,
+/// This behaves as an "exactly once" if all subgraphs are available
+/// (e.g. [`Stuck::ignore`] is never called).
+///
+/// In general, you should prefer the use of the [`Inliner`] interface, over [`Iterator`].
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+pub struct AtMostOnce {
+    at_least_once: AtLeastOnce,
     seen: HashSet<Cid>,
 }
 
-impl<'a, S: Store + ?Sized> AtMostOnce<'a, S> {
+impl AtMostOnce {
     /// Initialize a new [`AtMostOnce`] inliner
-    ///
-    /// # Arguments
-    ///
-    /// * `ipld` - The [`Ipld`] to inline
-    /// * `store` - The content addressed [`Store`] to draw graphs from
-    pub fn new(ipld: Ipld, store: &'a mut S) -> Self {
+    pub fn new(ipld: Ipld) -> Self {
         AtMostOnce {
-            exactly_once: AtLeastOnce::new(ipld, store),
+            at_least_once: AtLeastOnce::new(ipld),
             seen: HashSet::new(),
         }
     }
 }
 
-impl<'a, S: Store> From<AtLeastOnce<'a, S>> for AtMostOnce<'a, S> {
-    fn from(exactly_once: AtLeastOnce<'a, S>) -> Self {
+impl From<Ipld> for AtMostOnce {
+    fn from(ipld: Ipld) -> Self {
+        AtMostOnce::new(ipld)
+    }
+}
+
+impl From<AtLeastOnce> for AtMostOnce {
+    fn from(at_least_once: AtLeastOnce) -> Self {
         AtMostOnce {
-            exactly_once,
+            at_least_once,
             seen: HashSet::new(),
         }
     }
 }
 
-impl<'a, S: Store> From<AtMostOnce<'a, S>> for AtLeastOnce<'a, S> {
-    fn from(at_most_once: AtMostOnce<'a, S>) -> Self {
-        at_most_once.exactly_once
+impl From<AtMostOnce> for AtLeastOnce {
+    fn from(at_most_once: AtMostOnce) -> Self {
+        at_most_once.at_least_once
     }
 }
 
-impl<'a, S: Store> From<Naive<'a, S>> for AtMostOnce<'a, S> {
-    fn from(naive: Naive<'a, S>) -> Self {
-        AtMostOnce {
-            exactly_once: naive.into(),
-            seen: HashSet::new(),
-        }
-    }
-}
-
-impl<'a, S: Store> From<AtMostOnce<'a, S>> for Naive<'a, S> {
-    fn from(at_most_once: AtMostOnce<'a, S>) -> Self {
-        at_most_once.exactly_once.into()
-    }
-}
-
-impl<'a, S: Store + ?Sized> Iterator for AtMostOnce<'a, S> {
-    type Item = Result<Ipld, Cid>;
+impl Iterator for AtMostOnce {
+    type Item = Ipld;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.exactly_once.next()? {
-            Err(needs) => {
+        self.at_least_once.next()
+    }
+}
+
+impl<'a> Inliner<'a> for AtMostOnce {
+    fn resolve(&mut self, ipld: Ipld) {
+        self.at_least_once.resolve(ipld)
+    }
+
+    fn run<S: Store + ?Sized>(
+        &'a mut self,
+        store: &S,
+    ) -> Option<Result<InlineIpld, Stuck<'a, Self>>> {
+        let result = self.at_least_once.run(store)?;
+        match result {
+            Ok(inline) => Some(Ok(inline)),
+            Err(Stuck { needs, .. }) => {
                 if self.seen.contains(&needs) {
-                    self.exactly_once.interject(&Ipld::Link(needs));
-                    Some(Ok(Ipld::Link(needs)))
+                    self.at_least_once.resolve(Ipld::Link(needs));
+                    let inline = InlineIpld::attest(Ipld::Link(needs));
+                    Some(Ok(inline))
                 } else {
                     None
                 }
             }
-            good => Some(good),
         }
-    }
-}
-
-impl<'a, S: Store + ?Sized> Inliner<'a> for AtMostOnce<'a, S> {
-    fn store(&mut self, cid: &Cid, ipld: &Ipld) {
-        self.exactly_once.store(cid, ipld);
-    }
-
-    fn interject(&mut self, ipld: &Ipld) {
-        self.exactly_once.interject(ipld)
     }
 }

@@ -174,7 +174,7 @@ pub trait Store {
     /// # Examples
     ///
     /// ```
-    /// # use inline_ipld::store::traits::Store;
+    /// # use inline_ipld::{store::traits::Store, ipld::inlined::InlineIpld};
     /// #
     /// # use libipld::{ipld, cid::Version};
     /// # use libipld_cbor::DagCborCodec;
@@ -192,7 +192,7 @@ pub trait Store {
     /// expected.put_keyed(outer_cid, ipld!({"a": 123, "b": inner_cid}));
     ///
     /// let mut observed = BTreeMap::new();
-    /// let inlined = ipld!({"a": 123, "b": {"/": {"data": ipld!([4, 5, 6])}}});
+    /// let inlined = InlineIpld::attest(ipld!({"a": 123, "b": {"/": {"data": ipld!([4, 5, 6])}}}));
     /// observed.extract(inlined, DagCborCodec, &Sha2_256, Version::V1);
     ///
     /// assert_eq!(observed, expected);

@@ -1,4 +1,4 @@
-//! Newtype wrapper for [`InlinedIpld`]
+//! Newtype wrapper for [`InlineIpld`]
 
 use crate::cid;
 use libipld::{
@@ -11,13 +11,19 @@ use multihash::MultihashDigest;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Newtype wrapper for [`InlinedIpld`]
+/// Newtype wrapper for [`InlineIpld`]
 ///
 /// This is helpful to indictate that some form of inlining has already been performed.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct InlineIpld {
     ipld: Ipld,
+}
+
+impl PartialEq<Ipld> for InlineIpld {
+    fn eq(&self, other: &Ipld) -> bool {
+        other.eq(&self.ipld)
+    }
 }
 
 impl From<InlineIpld> for Ipld {
@@ -29,8 +35,8 @@ impl From<InlineIpld> for Ipld {
 impl InlineIpld {
     /// Wrap some [`Ipld`] and manually associated [`Cid`] in an inline delimiter
     ///
-    /// To have the [`Cid`] calculated at runtime, use [`inline_ipld_link`].
-    /// [`inline_ipld`] *does not* check that the [`Cid`] actually corresponds to the associated [`Ipld`].
+    /// To have the [`Cid`] calculated at runtime, use [`Self::wrap_with_link`].
+    /// [`Self::wrap`] *does not* check that the [`Cid`] actually corresponds to the associated [`Ipld`].
     ///
     /// # Arguments
     ///
@@ -38,12 +44,12 @@ impl InlineIpld {
     /// * `ipld` - The [`Ipld`] to inline
     ///
     /// ```
-    /// # use inline_ipld::{cid, ipld::inline_ipld};
+    /// # use inline_ipld::{cid, ipld::inlined::InlineIpld};
     /// # use libipld::{ipld, Ipld, Cid};
     /// # use std::str::FromStr;
     /// #
     /// let cid: Cid = FromStr::from_str("bafyreihscx57i276zr5pgnioa5omevods6eseu5h4mllmow6csasju6eqi").unwrap();
-    /// assert_eq!(inline_ipld(cid, ipld!([1, 2, 3])), ipld!({
+    /// assert_eq!(InlineIpld::wrap(cid, ipld!([1, 2, 3])), ipld!({
     ///   "/": {
     ///     "data": ipld!([1, 2, 3]),
     ///     "link": cid
@@ -76,10 +82,10 @@ impl InlineIpld {
     /// # Examples
     ///
     /// ```
-    /// # use inline_ipld::{cid, ipld::inline_ipld_inherit};
+    /// # use inline_ipld::{cid, ipld::inlined::InlineIpld};
     /// # use libipld::{ipld, Ipld};
     /// #
-    /// let observed = inline_ipld_inherit(ipld!([1, 2, 3]));
+    /// let observed = InlineIpld::wrap_inherit_link(ipld!([1, 2, 3]));
     /// assert_eq!(observed, ipld!({"/": {"data": ipld!([1, 2, 3])}}));
     /// ```
     pub fn wrap_inherit_link(ipld: Ipld) -> InlineIpld {
@@ -90,7 +96,7 @@ impl InlineIpld {
 
     /// Create inline-delimited [`Ipld`], and automatically calculate the [`Cid`]
     ///
-    /// Unlike [`inline_ipld`], [`inline_ipld_link`] calculates a correct `"link"` based on
+    /// Unlike [`Self::wrap`], [`Self::wrap_with_link`] calculates a correct `"link"` based on
     /// the codec and digest function passed in. It always uses to CIDv1.
     ///
     /// # Arguments
@@ -102,7 +108,7 @@ impl InlineIpld {
     /// # Examples
     ///
     /// ```
-    /// # use inline_ipld::{cid, ipld::inline_ipld_link};
+    /// # use inline_ipld::{cid, ipld::inlined::InlineIpld};
     /// # use std::str::FromStr;
     /// # use multihash::Code::Sha2_256;
     /// # use libipld::{
@@ -114,7 +120,7 @@ impl InlineIpld {
     /// # };
     /// #
     /// let cid: Cid = FromStr::from_str("bafyreickxqyrg7hhhdm2z24kduovd4k4vvbmfmenzn7nc6pxg6qzjm2v44").unwrap();
-    /// let observed = inline_ipld_link(DagCborCodec, &Sha2_256, ipld!([1, 2, 3]));
+    /// let observed = InlineIpld::wrap_with_link(DagCborCodec, &Sha2_256, ipld!([1, 2, 3]));
     /// assert_eq!(observed, ipld!({"/": {"data": ipld!([1,2, 3]), "link": cid}}));
     /// ```
     pub fn wrap_with_link<C: Codec, D: MultihashDigest<64>>(
@@ -139,8 +145,8 @@ impl InlineIpld {
     ///
     /// Use with caution: non-inlined [`Ipld`] can be maked as inlined with this function.
     ///
-    /// This is used in place of [`from`] to highlight that no conversion or checks happen.
-    /// If conversion is desired, use [`Self::wrap_inherit_links`].
+    /// This is used in place of [`from`][`From::from`] to highlight that no conversion or checks happen.
+    /// If conversion is desired, use [`Self::wrap_inherit_link`].
     ///
     /// # Arguments
     ///
@@ -149,7 +155,7 @@ impl InlineIpld {
     /// # Examples
     ///
     /// ```
-    /// # use inline_ipld::{cid, ipld::inline_ipld_link};
+    /// # use inline_ipld::{cid, ipld::inlined::InlineIpld};
     /// # use std::str::FromStr;
     /// # use multihash::Code::Sha2_256;
     /// # use libipld::{
@@ -160,11 +166,11 @@ impl InlineIpld {
     /// #     Cid
     /// # };
     /// #
-    /// let ready = ipld!({"a": 1, "b": {"/": {"data": [1, 2, 3]}}})
-    /// let observed = InlineIpld::already_inlined(ready);
-    /// assert_eq!(observed, InlineIpld { ipld: ready })
+    /// let ready = ipld!({"a": 1, "b": {"/": {"data": [1, 2, 3]}}});
+    /// let observed = InlineIpld::attest(ready.clone());
+    /// assert_eq!(observed, ready)
     /// ```
-    pub fn already_inlined(ipld: Ipld) -> InlineIpld {
+    pub fn attest(ipld: Ipld) -> InlineIpld {
         InlineIpld { ipld }
     }
 }

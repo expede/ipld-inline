@@ -6,7 +6,7 @@ use libipld::ipld::Ipld;
 use serde::{Deserialize, Serialize};
 
 /// A post-order [`Ipld`] iterator
-#[derive(Debug, Default, PartialEq, Clone)]
+#[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct PostOrderIpldIter {
     inbound: Vec<Ipld>,
@@ -27,6 +27,7 @@ impl Iterator for PostOrderIpldIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
+            dbg!(self.clone());
             match self.inbound.pop() {
                 None => return self.outbound.pop(),
                 Some(Ipld::Map(btree)) => {

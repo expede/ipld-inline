@@ -3,27 +3,14 @@ use crate::ipld::inlined::InlineIpld;
 use crate::store::traits::Store;
 use libipld::{Cid, Ipld};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// A trait for inlining [`Ipld`]
-pub trait Inliner<'a>: Iterator<Item = Result<Ipld, Cid>> {
-    // These are shared with Stuck... should that get extracted?
-
-    // /// Store some [`Ipld`] in the [`Inliner`]'s state
-    // ///
-    // /// This is useful for deduplication, avoiding [`Stuck`] states, and so on
-    // ///
-    // /// # Arguments
-    // ///
-    // /// * `self` - The [`Inliner`]
-    // /// * `cid` - The [`Cid`] to use as a key. It's relationship to `ipld` is not checked.
-    // /// * `ipld` - The [`Ipld`] to store
-    // ///
-    // /// # Examples
-    // ///
-    // /// FIXME write doctest
-    // /// # use pretty_assertions::assert_eq;
-    // fn store(&mut self, cid: &Cid, ipld: &Ipld);
-
-    /// Push some [`Ipld`] into the processing queue state of the [`Inliner`]
+pub trait Inliner<'a>: Iterator<Item = Ipld> {
+    /// Unblock a stuck [`Iterator`].
+    ///
+    /// This is generally achieved by pushing some [`Ipld`] into the [`Inliner`]'s processing queue.
     ///
     /// Roughly "skipping the line" with some new `Ipld` to directly edit the output during DAG construction.
     /// This is especially helpful for resolving missing [`Ipld`] segments without permanently storing it.
@@ -32,12 +19,7 @@ pub trait Inliner<'a>: Iterator<Item = Result<Ipld, Cid>> {
     ///
     /// * `self` - The [`Inliner`]
     /// * `ipld` - The [`Ipld`] to push into procesisng queue
-    ///
-    /// # Examples
-    ///
-    /// FIXME write doctest
-    /// # use pretty_assertions::assert_eq;
-    fn interject(&mut self, ipld: &Ipld); // NOTE TO SELF: in definition, set `needs = None`
+    fn resolve(&mut self, ipld: Ipld);
 
     /// Run the [`Inliner`] until completion or unable to progress
     ///
@@ -45,33 +27,30 @@ pub trait Inliner<'a>: Iterator<Item = Result<Ipld, Cid>> {
     ///
     /// ```
     /// # use inline_ipld::{
-    /// #   inliner::exactly_once::ExactlyOnce,
+    /// #   inliner::{at_least_once::AtLeastOnce, traits::Inliner},
     /// #   store::{
     /// #     traits::Store,
     /// #     memory::MemoryStore
     /// #   }
     /// # };
-    /// # use libipld::{ipld, cid::{CidGeneric, Version}};
+    /// # use libipld::{ipld, Cid, cid::{CidGeneric, Version}};
     /// # use libipld_cbor::DagCborCodec;
     /// # use multihash::Code::Sha2_256;
     /// # use pretty_assertions::assert_eq;
     /// #
-    /// let mut store = MemoryStore::new();
-    /// let cid = store.put(ipld!([1, 2, 3]), DagCborCodec, &Sha2_256, Version::V1).unwrap();
+    /// let store = MemoryStore::new(); // NOTE: completely blank through entire example
+    /// let missing_cid: Cid = CidGeneric::try_from(
+    ///     "bafyreickxqyrg7hhhdm2z24kduovd4k4vvbmfmenzn7nc6pxg6qzjm2v44".to_string(),
+    /// )
+    /// .unwrap();
     ///
-    /// let mut exactly_once = ExactlyOnce::new(ipld!({"a": 1, "b": cid}), &mut store);
-    /// let expected = ipld!({"a": 1, "b": {"/": {"link": cid, "data": [1, 2, 3]}}});
-    ///
-    /// assert_eq!(exactly_once.run().unwrap().unwrap(), expected);
+    /// let mut inliner = AtLeastOnce::new(ipld!({"a": 1, "b": missing_cid}));
+    /// assert!(inliner.run(&store).unwrap().is_err());
     /// ```
-    ///
-    /// FIXME show the err case
-    fn run(&'a mut self, store: &dyn Store) -> Option<Result<InlineIpld, Stuck<'a, Self>>> {
-        match self.last()? {
-            Ok(ipld) => Some(Ok(InlineIpld::already_inlined(ipld))),
-            Err(needs) => Some(Err(self.stuck_at(needs))),
-        }
-    }
+    fn run<S: Store + ?Sized>(
+        &'a mut self,
+        store: &S,
+    ) -> Option<Result<InlineIpld, Stuck<'a, Self>>>;
 
     /// Manually convert an [`Inliner`] to a [`Stuck`]
     ///
@@ -85,7 +64,7 @@ pub trait Inliner<'a>: Iterator<Item = Result<Ipld, Cid>> {
     /// ```
     /// # use inline_ipld::{
     /// #   inliner::{
-    /// #     exactly_once::ExactlyOnce,
+    /// #     at_least_once::AtLeastOnce,
     /// #     traits::{Inliner, Stuck}
     /// #   },
     /// #   store::{
@@ -102,7 +81,7 @@ pub trait Inliner<'a>: Iterator<Item = Result<Ipld, Cid>> {
     /// let mut store = MemoryStore::new();
     /// let cid = FromStr::from_str("bafyreickxqyrg7hhhdm2z24kduovd4k4vvbmfmenzn7nc6pxg6qzjm2v44").unwrap();
     ///
-    /// let mut inliner = ExactlyOnce::new(Ipld::Null, &mut store);
+    /// let mut inliner = AtLeastOnce::new(Ipld::Null);
     /// assert_eq!(inliner.stuck_at(cid).needs, cid);
     /// ```
     fn stuck_at(&'a mut self, needs: Cid) -> Stuck<'a, Self> {
@@ -113,10 +92,11 @@ pub trait Inliner<'a>: Iterator<Item = Result<Ipld, Cid>> {
     }
 }
 
-/// Error state if a [`Cid`] is not available from the [`ExactlyOnce`]'s [`Store`]
+/// Error state if a [`Cid`] is not available from the [`Inliner`]'s [`Store`]
 ///
 /// This struct can be [resolved][Stuck::resolve] to continue inlining.
 #[derive(PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(Desasassaerialize, Serialize))]
 pub struct Stuck<'a, I: Inliner<'a> + ?Sized> {
     inliner: &'a mut I,
 
@@ -131,7 +111,7 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     ///
     /// ```
     /// # use inline_ipld::{
-    /// #   inliner::exactly_once::ExactlyOnce,
+    /// #   inliner::{at_least_once::AtLeastOnce, traits::Inliner},
     /// #   store::{
     /// #     traits::Store,
     /// #     memory::MemoryStore
@@ -141,24 +121,25 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     /// # use libipld_cbor::DagCborCodec;
     /// # use multihash::Code::Sha2_256;
     /// # use std::str::FromStr;
+    /// # use pretty_assertions::assert_eq;
     /// #
     /// let mut store = MemoryStore::new();
     /// let cid: Cid = FromStr::from_str("bafyreihscx57i276zr5pgnioa5omevods6eseu5h4mllmow6csasju6eqi").unwrap();
     /// let expected = ipld!({"a": 1, "b": {"/": {"link": cid, "data": [1, 2, 3]}}});
     ///
     /// let mut observed = None;
-    /// if let Some(Err(mut stuck)) = ExactlyOnce::new(ipld!({"a": 1, "b": cid}), &mut store).run() {
-    ///   observed = Some(stuck.resolve(ipld!([1, 2, 3])).run().expect("A").expect("B"));
+    /// if let Some(Err(mut stuck)) = AtLeastOnce::new(ipld!({"a": 1, "b": cid})).run(&store) {
+    ///   observed = Some(stuck.resolve(ipld!([1, 2, 3]), &mut store).run(&store).expect("A").expect("B"));
     /// }
     ///
     /// /// The IPLD is inlined
-    /// assert_eq!(observed, Some(expected));
+    /// assert_eq!(observed.unwrap(), expected);
     ///
     /// // The IPLD is now stored
     /// assert_eq!(store.get(&cid).unwrap(), &ipld!([1, 2, 3]));
     /// ```
-    pub fn resolve(&'a mut self, ipld: &Ipld) -> &'a mut I {
-        self.inliner.store(&self.needs, ipld);
+    pub fn resolve<S: Store + ?Sized>(&'a mut self, ipld: Ipld, store: &mut S) -> &'a mut I {
+        store.put_keyed(self.needs, ipld.clone());
         self.stub(ipld)
     }
 
@@ -168,7 +149,7 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     ///
     /// ```
     /// # use inline_ipld::{
-    /// #   inliner::exactly_once::ExactlyOnce,
+    /// #   inliner::{at_least_once::AtLeastOnce, traits::Inliner},
     /// #   store::{
     /// #     traits::Store,
     /// #     memory::MemoryStore
@@ -177,6 +158,7 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     /// # use libipld::{ipld, Ipld, cid::{CidGeneric, Version}, Cid};
     /// # use libipld_cbor::DagCborCodec;
     /// # use multihash::Code::Sha2_256;
+    /// # use pretty_assertions::assert_eq;
     /// # use std::str::FromStr;
     /// #
     /// let mut store = MemoryStore::new();
@@ -184,19 +166,20 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     /// let expected = ipld!({"a": 1, "b": {"/": {"link": cid, "data": [1, 2, 3]}}});
     ///
     /// let mut observed = None;
-    /// if let Some(Err(mut stuck)) = ExactlyOnce::new(ipld!({"a": 1, "b": cid}), &mut store).run() {
-    ///   observed = Some(stuck.stub(ipld!([1, 2, 3])).run().expect("A").expect("B"));
+    /// if let Some(Err(mut stuck)) = AtLeastOnce::new(ipld!({"a": 1, "b": cid})).run(&store) {
+    ///   observed = Some(stuck.stub(ipld!([1, 2, 3])).run(&store).expect("A").expect("B"));
     /// }
-    /// assert_eq!(observed, Some(expected));
+    ///
+    /// assert_eq!(observed.unwrap(), expected);
     /// ```
-    pub fn stub(&'a mut self, ipld: &Ipld) -> &'a mut I {
+    pub fn stub(&'a mut self, ipld: Ipld) -> &'a mut I {
         self.inliner
-            .interject(&InlineIpld::wrap(self.needs.clone(), ipld.clone()).into());
+            .resolve(InlineIpld::wrap(self.needs.clone(), ipld).into());
 
         self.inliner
     }
 
-    /// Ignore the stuck [`Cid`] to return to normal [`ExactlyOnce`] operation
+    /// Ignore the stuck [`Cid`] to return to normal [`Inliner`] operation
     ///
     /// This function skips inlining, and leaves the [`Cid`] as a Link.
     ///
@@ -204,7 +187,7 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     ///
     /// ```
     /// # use inline_ipld::{
-    /// #   inliner::exactly_once::ExactlyOnce,
+    /// #   inliner::{at_least_once::AtLeastOnce, traits::Inliner},
     /// #   store::{
     /// #     traits::Store,
     /// #     memory::MemoryStore
@@ -214,19 +197,20 @@ impl<'a, I: Inliner<'a> + ?Sized> Stuck<'a, I> {
     /// # use libipld_cbor::DagCborCodec;
     /// # use multihash::Code::Sha2_256;
     /// # use std::str::FromStr;
+    /// # use pretty_assertions::assert_eq;
     /// #
     /// let mut store = MemoryStore::new();
     /// let cid: Cid = FromStr::from_str("bafyreihscx57i276zr5pgnioa5omevods6eseu5h4mllmow6csasju6eqi").unwrap();
     /// let expected = ipld!({"a": 1, "b": cid});
     ///
-    /// let mut observed = None;
-    /// if let Some(Err(mut stuck)) = ExactlyOnce::new(ipld!({"a": 1, "b": cid}), &mut store).run() {
-    ///   observed = Some(stuck.ignore().run().unwrap().unwrap());
+    /// if let Some(Err(mut stuck)) = AtLeastOnce::new(ipld!({"a": 1, "b": cid})).run(&mut store) {
+    ///   assert_eq!(stuck.needs, cid);
+    ///   let result = stuck.ignore().run(&store);
+    ///   assert_eq!(result.unwrap().unwrap(), expected);
     /// }
-    /// assert_eq!(observed, Some(expected));
     /// ```
     pub fn ignore(&'a mut self) -> &'a mut I {
-        self.inliner.interject(&Ipld::Link(self.needs.clone()));
+        self.inliner.resolve(Ipld::Link(self.needs.clone()));
         self.inliner
     }
 }

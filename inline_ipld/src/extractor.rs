@@ -170,7 +170,8 @@ mod tests {
     proptest! {
         #[test]
         fn identity_prop_test(MoreThanIpld(ipld) in any::<MoreThanIpld>()) {
-            let mut ext = Extractor::new(ipld.clone().into(), DagCborCodec, &Sha2_256, Version::V1);
+            let inline = InlineIpld::attest(ipld.clone());
+            let mut ext = Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1);
             prop_assert!(ext.next().unwrap().1 == ipld);
         }
     }
@@ -189,7 +190,8 @@ mod tests {
         expected.insert(cid, ipld.clone());
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(ipld.into(), DagCborCodec, &Sha2_256, Version::V1) {
+        let inline = InlineIpld::attest(ipld);
+        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -258,7 +260,8 @@ mod tests {
         let ipld = ipld!([{"/": {"data": [1, 2, 3]}}]);
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(ipld.into(), DagCborCodec, &Sha2_256, Version::V1) {
+        let inline = InlineIpld::attest(ipld);
+        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -292,9 +295,10 @@ mod tests {
         .unwrap();
 
         let ipld = ipld!([{"/": {"data": [1, 2, 3], "link": arr_cid}}]);
+        let inline = InlineIpld::attest(ipld);
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -308,6 +312,7 @@ mod tests {
     #[test]
     fn store_nested_test() {
         let ipld = ipld!({"/": {"data": [1, {"/": {"data": ["a", "b"]}}]}});
+        let inline = InlineIpld::attest(ipld);
 
         let mut expected: BTreeMap<Cid, Ipld> = BTreeMap::new();
 
@@ -333,7 +338,7 @@ mod tests {
         expected.insert(cid3, ipld!(cid2));
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -373,9 +378,10 @@ mod tests {
                 }
             }
         );
+        let inline = InlineIpld::attest(ipld);
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -436,9 +442,10 @@ mod tests {
                 }
             }
         );
+        let inline = InlineIpld::attest(ipld);
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(ipld, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 

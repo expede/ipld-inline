@@ -30,6 +30,7 @@ fn new_memory_store_test() {
     assert_eq!(II.new_memory_store(), 2);
 }
 
+
 // This runs a unit test in the browser, and in addition it supports asynchronous Future APIs.
 // #[wasm_bindgen_test(async)]
 // fn async_test() -> impl Future<Item = (), Error = JsValue> {
