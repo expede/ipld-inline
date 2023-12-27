@@ -62,11 +62,11 @@ pub trait Store {
     /// # let cid = FromStr::from_str("bafyreickxqyrg7hhhdm2z24kduovd4k4vvbmfmenzn7nc6pxg6qzjm2v44").unwrap();
     /// #
     /// let mut store = BTreeMap::new();
-    /// store.put_keyed(cid, block.clone());
+    /// store.put_keyed(&cid, block.clone());
     ///
     /// assert_eq!(Store::get(&store, &cid).unwrap(), &block);
     /// ```
-    fn put_keyed(&mut self, cid: Cid, ipld: Ipld);
+    fn put_keyed(&mut self, cid: &Cid, ipld: Ipld);
 
     /// Insert a block into content addressed storage
     ///
@@ -109,7 +109,7 @@ pub trait Store {
         Ipld: Encode<C>,
     {
         let block_cid = cid::new(&ipld, codec, digester, cid_version)?;
-        self.put_keyed(block_cid, ipld);
+        self.put_keyed(&block_cid, ipld);
         Ok(block_cid)
     }
 
@@ -188,12 +188,12 @@ pub trait Store {
     /// let outer_cid = FromStr::from_str("bafyreignkagaefshuw6wloom3qh2mb2ytavv6y3s7sogi7hpeoetb7ejki").unwrap();
     ///
     /// let mut expected = BTreeMap::new();
-    /// expected.put_keyed(inner_cid, ipld!([4, 5, 6]));
-    /// expected.put_keyed(outer_cid, ipld!({"a": 123, "b": inner_cid}));
+    /// expected.put_keyed(&inner_cid, ipld!([4, 5, 6]));
+    /// expected.put_keyed(&outer_cid, ipld!({"a": 123, "b": inner_cid}));
     ///
     /// let mut observed = BTreeMap::new();
     /// let inlined = InlineIpld::attest(ipld!({"a": 123, "b": {"/": {"data": ipld!([4, 5, 6])}}}));
-    /// observed.extract(inlined, DagCborCodec, &Sha2_256, Version::V1);
+    /// observed.extract(&inlined, DagCborCodec, &Sha2_256, Version::V1);
     ///
     /// assert_eq!(observed, expected);
     /// ```
@@ -206,7 +206,7 @@ pub trait Store {
     ) where
         Ipld: Encode<C>,
     {
-        for (cid, dag) in Extractor::new(inline_ipld, codec, digester, cid_version) {
+        for (ref cid, dag) in Extractor::new(inline_ipld, codec, digester, cid_version) {
             self.put_keyed(cid, dag);
         }
     }
@@ -217,8 +217,8 @@ impl Store for BTreeMap<Cid, Ipld> {
         self.get(cid).ok_or(BlockNotFound(*cid))
     }
 
-    fn put_keyed(&mut self, cid: Cid, ipld: Ipld) {
-        self.insert(cid, ipld);
+    fn put_keyed(&mut self, cid: &Cid, ipld: Ipld) {
+        self.insert(*cid, ipld);
     }
 }
 

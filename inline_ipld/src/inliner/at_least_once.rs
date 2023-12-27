@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 pub struct AtLeastOnce<'a> {
     po: PostOrderIpldIter<'a>,
     stack: Vec<Ipld>,
-    needs: Option<&'a Cid>,
+    needs: Option<Cid>,
 }
 
 impl<'a> AtLeastOnce<'a> {
@@ -50,13 +50,13 @@ impl<'a> Iterator for AtLeastOnce<'a> {
     }
 }
 
-impl<'a> Inliner<'a> for AtLeastOnce<'a> {
+impl<'a> Inliner for AtLeastOnce<'a> {
     fn resolve(&mut self, ipld: Ipld) {
         self.stack.push(ipld);
         self.needs = None;
     }
 
-    fn run<S: Store + ?Sized>(mut self, store: &S) -> Option<Result<InlineIpld, Stuck<'a, Self>>> {
+    fn run<S: Store + ?Sized>(mut self, store: &S) -> Option<Result<InlineIpld, Stuck<Self>>> {
         for node in &mut self.po {
             match node {
                 Ipld::Link(cid) => {
@@ -70,7 +70,7 @@ impl<'a> Inliner<'a> for AtLeastOnce<'a> {
 
                         self.stack.push(Ipld::Map(outer));
                     } else {
-                        return Some(Err(self.stuck_at(cid)));
+                        return Some(Err(self.stuck_at(*cid)));
                     }
                 }
 
@@ -99,27 +99,26 @@ impl<'a> Inliner<'a> for AtLeastOnce<'a> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::store::memory::MemoryStore;
-//     use libipld::ipld;
-//     use pretty_assertions::assert_eq;
-//
-//     #[test]
-//     fn interject_test() {
-//         let mut store = MemoryStore::new();
-//         let mut inliner = AtLeastOnce::new(ipld!([1, 2, 3]));
-//
-//         let cid: Cid =
-//             FromStr::from_str("bafyreihscx57i276zr5pgnioa5omevods6eseu5h4mllmow6csasju6eqi")
-//                 .unwrap();
-//
-//         let mut observed = None;
-//         if let Some(Err(mut stuck)) = AtLeastOnce::new(ipld!({"a": 1, "b": cid})).run(&mut store) {
-//             observed = Some(stuck.ignore().run(&mut store).unwrap().unwrap());
-//         }
-//
-//         assert_eq!(observed.unwrap(), ipld!({"a": 1, "b": cid}););
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::store::memory::MemoryStore;
+    use libipld::ipld;
+    use pretty_assertions::assert_eq;
+    use std::str::FromStr;
+
+    #[test]
+    fn inliner_resolve_test() {
+        let cid: Cid =
+            FromStr::from_str("bafyreihscx57i276zr5pgnioa5omevods6eseu5h4mllmow6csasju6eqi")
+                .unwrap();
+
+        let mut store = MemoryStore::new();
+        let mut observed = None;
+        if let Some(Err(stuck)) = AtLeastOnce::new(&ipld!({"a": 1, "b": cid})).run(&mut store) {
+            observed = Some(stuck.ignore().run(&mut store).unwrap().unwrap());
+        }
+
+        assert_eq!(observed.unwrap(), ipld!({"a": 1, "b": cid}));
+    }
+}

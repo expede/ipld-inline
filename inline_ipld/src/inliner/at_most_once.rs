@@ -62,17 +62,17 @@ impl<'a> Iterator for AtMostOnce<'a> {
     }
 }
 
-impl<'a> Inliner<'a> for AtMostOnce<'a> {
+impl<'a> Inliner for AtMostOnce<'a> {
     fn resolve(&mut self, ipld: Ipld) {
         self.at_least_once.resolve(ipld)
     }
 
     // FIXME by ref?
-    fn run<S: Store + ?Sized>(self, store: &S) -> Option<Result<InlineIpld, Stuck<'a, Self>>> {
+    fn run<S: Store + ?Sized>(self, store: &S) -> Option<Result<InlineIpld, Stuck<Self>>> {
         match self.at_least_once.run(store)? {
             Ok(inline_ipld) => Some(Ok(inline_ipld)),
             Err(stuck) => {
-                if self.seen.contains(stuck.needs()) {
+                if self.seen.contains(&stuck.needs()) {
                     let inliner: Self = (*stuck.ignore()).into();
                     inliner.run(store)
                 } else {

@@ -7,7 +7,7 @@ use std::ops::DerefMut;
 use serde::{Deserialize, Serialize};
 
 /// A trait for inlining [`Ipld`]
-pub trait Inliner<'a> {
+pub trait Inliner {
     /// Unblock a stuck [`Iterator`].
     ///
     /// This is generally achieved by pushing some [`Ipld`] into the [`Inliner`]'s processing queue.
@@ -44,10 +44,11 @@ pub trait Inliner<'a> {
     /// )
     /// .unwrap();
     ///
-    /// let mut inliner = AtLeastOnce::new(ipld!({"a": 1, "b": missing_cid}));
+    /// let dag = ipld!({"a": 1, "b": missing_cid});
+    /// let mut inliner = AtLeastOnce::new(&dag);
     /// assert!(inliner.run(&store).unwrap().is_err());
     /// ```
-    fn run<S: Store + ?Sized>(self, store: &S) -> Option<Result<InlineIpld, Stuck<'a, Self>>>;
+    fn run<S: Store + ?Sized>(self, store: &S) -> Option<Result<InlineIpld, Stuck<Self>>>;
 
     /// Manually convert an [`Inliner`] to a [`Stuck`]
     ///
@@ -78,10 +79,10 @@ pub trait Inliner<'a> {
     /// let mut store = MemoryStore::new();
     /// let cid = FromStr::from_str("bafyreickxqyrg7hhhdm2z24kduovd4k4vvbmfmenzn7nc6pxg6qzjm2v44").unwrap();
     ///
-    /// let mut inliner = AtLeastOnce::new(Ipld::Null);
-    /// assert_eq!(inliner.stuck_at(cid).needs, cid);
+    /// let mut inliner = AtLeastOnce::new(&Ipld::Null);
+    /// assert_eq!(inliner.stuck_at(cid).needs(), cid);
     /// ```
-    fn stuck_at(self, needs: &'a Cid) -> Stuck<'a, Self>
+    fn stuck_at(self, needs: Cid) -> Stuck<Self>
     where
         Self: Sized,
     {
@@ -97,15 +98,15 @@ pub trait Inliner<'a> {
 /// This struct can be [resolved][Stuck::resolve] to continue inlining.
 #[derive(PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(Desasassaerialize, Serialize))]
-pub struct Stuck<'a, I: Inliner<'a> + ?Sized> {
+pub struct Stuck<I: Inliner + ?Sized> {
     pub(crate) inliner: Box<I>,
 
-    needs: &'a Cid,
+    needs: Cid,
 }
 
-impl<'a, I: Inliner<'a>> Stuck<'a, I> {
+impl<I: Inliner> Stuck<I> {
     /// Get the [`Cid`] required for the [`Inliner`] to continue
-    pub fn needs(&self) -> &'a Cid {
+    pub fn needs(&self) -> Cid {
         self.needs
     }
 
@@ -132,7 +133,7 @@ impl<'a, I: Inliner<'a>> Stuck<'a, I> {
     /// let expected = ipld!({"a": 1, "b": {"/": {"link": cid, "data": [1, 2, 3]}}});
     ///
     /// let mut observed = None;
-    /// if let Some(Err(mut stuck)) = AtLeastOnce::new(ipld!({"a": 1, "b": cid})).run(&store) {
+    /// if let Some(Err(mut stuck)) = AtLeastOnce::new(&ipld!({"a": 1, "b": cid})).run(&store) {
     ///   observed = Some(stuck.resolve(ipld!([1, 2, 3]), &mut store).run(&store).expect("A").expect("B"));
     /// }
     ///
@@ -143,7 +144,7 @@ impl<'a, I: Inliner<'a>> Stuck<'a, I> {
     /// assert_eq!(store.get(&cid).unwrap(), &ipld!([1, 2, 3]));
     /// ```
     pub fn resolve<S: Store + ?Sized>(self, ipld: Ipld, store: &mut S) -> Box<I> {
-        store.put_keyed(self.needs.clone(), ipld.clone());
+        store.put_keyed(&self.needs, ipld.clone());
         self.stub(ipld)
     }
 
@@ -170,7 +171,7 @@ impl<'a, I: Inliner<'a>> Stuck<'a, I> {
     /// let expected = ipld!({"a": 1, "b": {"/": {"link": cid, "data": [1, 2, 3]}}});
     ///
     /// let mut observed = None;
-    /// if let Some(Err(mut stuck)) = AtLeastOnce::new(ipld!({"a": 1, "b": cid})).run(&store) {
+    /// if let Some(Err(mut stuck)) = AtLeastOnce::new(&ipld!({"a": 1, "b": cid})).run(&store) {
     ///   observed = Some(stuck.stub(ipld!([1, 2, 3])).run(&store).expect("A").expect("B"));
     /// }
     ///
@@ -179,7 +180,7 @@ impl<'a, I: Inliner<'a>> Stuck<'a, I> {
     pub fn stub(mut self, ipld: Ipld) -> Box<I> {
         self.inliner
             .deref_mut()
-            .resolve(InlineIpld::wrap(self.needs.clone(), ipld).into());
+            .resolve(InlineIpld::wrap(self.needs, ipld).into());
 
         self.inliner
     }
@@ -206,19 +207,17 @@ impl<'a, I: Inliner<'a>> Stuck<'a, I> {
     /// #
     /// let mut store = MemoryStore::new();
     /// let cid: Cid = FromStr::from_str("bafyreihscx57i276zr5pgnioa5omevods6eseu5h4mllmow6csasju6eqi").unwrap();
+    /// let ipld = ipld!({"a": 1, "b": cid});
     /// let expected = ipld!({"a": 1, "b": cid});
     ///
-    /// if let Some(Err(mut stuck)) = AtLeastOnce::new(ipld!({"a": 1, "b": cid})).run(&mut store) {
-    ///   assert_eq!(stuck.needs, cid);
+    /// if let Some(Err(mut stuck)) = AtLeastOnce::new(&ipld).run(&mut store) {
+    ///   assert_eq!(stuck.needs(), cid);
     ///   let result = stuck.ignore().run(&store);
     ///   assert_eq!(result.unwrap().unwrap(), expected);
     /// }
     /// ```
     pub fn ignore(mut self) -> Box<I> {
-        self.inliner
-            .deref_mut()
-            .resolve(Ipld::Link(self.needs.clone()));
-
+        self.inliner.deref_mut().resolve(Ipld::Link(self.needs));
         self.inliner
     }
 }

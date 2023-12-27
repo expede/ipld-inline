@@ -65,7 +65,7 @@ impl<'a> Iterator for PostOrderIpldIter<'a> {
 /// use std::iter::Peekable;
 ///
 /// let dag = ipld!({"/": 123}); // Will put two items on the stack: [{"/": 123}, 123]
-/// let mut poii: PostOrderIpldIter = dag.into();
+/// let mut poii = PostOrderIpldIter::new(&dag);
 /// poii.next(); // Use the lowest item
 ///
 /// assert_eq!(is_delimiter_next(&mut poii.peekable()), true);
@@ -110,24 +110,24 @@ mod tests {
             ipld!(456),
             linkless_array.clone(),
             ipld!({"data": linkless_array}),
-            linkless.clone(),
+            linkless,
             ipld!(99),
             ipld!("hello"),
             linkful_array.clone(),
             cid.clone(),
             ipld!({"link": cid, "data": linkful_array}),
-            linkful.clone(),
-            inlines.clone(),
+            linkful,
+            inlines,
             ipld!("bar-val"),
             ipld!("baz-val"),
             ipld!("foo-val"),
-            string_map.clone(),
-            outer_array.clone(),
+            string_map,
+            outer_array,
             ipld.clone(),
         ];
 
         let mut observed: Vec<Ipld> = vec![];
-        for node in PostOrderIpldIter::from(ipld) {
+        for node in PostOrderIpldIter::from(&ipld) {
             observed.push(node.clone());
         }
 

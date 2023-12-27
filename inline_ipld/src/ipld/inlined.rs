@@ -66,8 +66,8 @@ impl InlineIpld {
         InlineIpld {
             ipld: ipld!({
               "/": {
-                "data": ipld!(ipld),
-                "link": Ipld::Link(cid)
+                "link": Ipld::Link(cid),
+                "data": ipld
               }
             }),
         }
@@ -140,8 +140,8 @@ impl InlineIpld {
         InlineIpld {
             ipld: ipld!({
               "/": {
-                "data": ipld.clone(),
-                "link": Ipld::Link(cid::new(&ipld, codec, digester, Version::V1).unwrap())
+                "link": Ipld::Link(cid::new(&ipld, codec, digester, Version::V1).unwrap()),
+                "data": ipld,
               }
             }),
         }
@@ -177,6 +177,6 @@ impl InlineIpld {
     /// assert_eq!(observed, ready)
     /// ```
     pub fn attest(ipld: Ipld) -> Self {
-        InlineIpld { ipld }
+        InlineIpld { ipld } // FIXME maybe this SHOULD be a ref?
     }
 }

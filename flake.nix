@@ -217,6 +217,12 @@
               category = "watch";
               command  = "${pkgs.cargo}/bin/cargo watch --clear --workdir ./inline_ipld --exec test";
             }
+            {
+              name     = "watch:test:docs:native";
+              help     = "Run all tests on save";
+              category = "watch";
+              command  = "${pkgs.cargo}/bin/cargo watch --clear --workdir ./inline_ipld --exec test";
+            }
             # Test
             {
               name     = "test:all";

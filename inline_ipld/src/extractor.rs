@@ -118,10 +118,8 @@ where
                     }
 
                     let substack: Vec<Ipld> = self.stack.split_off(self.stack.len() - keys.len());
-                    let inner_map: BTreeMap<String, Ipld> = keys
-                        .zip(substack)
-                        .map(|(s, i)| (s.clone(), i.clone()))
-                        .collect();
+                    let inner_map: BTreeMap<String, Ipld> =
+                        keys.zip(substack).map(|(k, v)| (k.clone(), v)).collect();
 
                     self.stack.push(Ipld::Map(inner_map));
                 }
@@ -181,7 +179,7 @@ mod tests {
         #[test]
         fn identity_prop_test(MoreThanIpld(ipld) in any::<MoreThanIpld>()) {
             let inline = InlineIpld::attest(ipld.clone());
-            let mut ext = Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1);
+            let mut ext = Extractor::new(&inline, DagCborCodec, &Sha2_256, Version::V1);
             prop_assert!(ext.next().unwrap().1 == ipld);
         }
     }
@@ -201,7 +199,7 @@ mod tests {
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
         let inline = InlineIpld::attest(ipld);
-        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(&inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -218,7 +216,7 @@ mod tests {
         let inline = InlineIpld::wrap(arr_cid, ipld!([1, 2, 3]));
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(&inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -254,7 +252,7 @@ mod tests {
         let inline = InlineIpld::wrap(arr_cid, ipld!([1, 2, 3]));
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(&inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -271,7 +269,7 @@ mod tests {
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
         let inline = InlineIpld::attest(ipld);
-        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(&inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -308,7 +306,7 @@ mod tests {
         let inline = InlineIpld::attest(ipld);
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(&inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -348,7 +346,7 @@ mod tests {
         expected.insert(cid3, ipld!(cid2));
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(&inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -391,7 +389,7 @@ mod tests {
         let inline = InlineIpld::attest(ipld);
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(&inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 
@@ -455,7 +453,7 @@ mod tests {
         let inline = InlineIpld::attest(ipld);
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
-        for (cid, node) in Extractor::new(inline, DagCborCodec, &Sha2_256, Version::V1) {
+        for (cid, node) in Extractor::new(&inline, DagCborCodec, &Sha2_256, Version::V1) {
             observed.insert(cid, node);
         }
 

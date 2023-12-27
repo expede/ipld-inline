@@ -40,7 +40,7 @@ impl Store for MemoryStore {
         Store::get(&self.store, cid)
     }
 
-    fn put_keyed(&mut self, cid: Cid, ipld: Ipld) {
+    fn put_keyed(&mut self, cid: &Cid, ipld: Ipld) {
         self.store.put_keyed(cid, ipld);
     }
 }
