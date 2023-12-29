@@ -1,5 +1,9 @@
 //! Content-addressed store trait
-use crate::{cid, extractor::Extractor, ipld::inlined::InlineIpld};
+use crate::{
+    cid,
+    extractor::Extractor,
+    ipld::{encodable::EncodableAs, inlined::InlineIpld},
+};
 use libipld::{
     cid::{Cid, Version},
     codec::{Codec, Encode},
@@ -34,7 +38,7 @@ pub trait Store {
     /// #
     /// let block = ipld!([1, 2, 3]);
     /// let mut store = BTreeMap::new();
-    /// let cid = store.put(block.clone(), DagCborCodec, &Sha2_256, Version::V1).unwrap();
+    /// let cid = store.put(block.clone(), DagCborCodec, &Sha2_256, Version::V1);
     ///
     /// assert_eq!(Store::get(&store, &cid).unwrap(), &block);
     /// ```
@@ -94,7 +98,7 @@ pub trait Store {
     /// #
     /// let block = ipld!([1, 2, 3]);
     /// let mut store = BTreeMap::new();
-    /// let cid = store.put(block.clone(), DagCborCodec, &Sha2_256, Version::V1).unwrap();
+    /// let cid = store.put(block.clone(), DagCborCodec, &Sha2_256, Version::V1);
     ///
     /// assert_eq!(Store::get(&store, &cid).unwrap(), &block);
     /// ```
@@ -104,13 +108,13 @@ pub trait Store {
         codec: C,
         digester: &D,
         cid_version: Version,
-    ) -> Result<Cid, cid::Error>
+    ) -> Cid
     where
-        Ipld: Encode<C>,
+        Ipld: EncodableAs<C>,
     {
-        let block_cid = cid::new(&ipld, codec, digester, cid_version)?;
+        let block_cid = cid::new(&ipld, codec, digester, cid_version);
         self.put_keyed(&block_cid, ipld);
-        Ok(block_cid)
+        block_cid
     }
 
     #[cfg(feature = "sha2")]
@@ -144,7 +148,7 @@ pub trait Store {
     /// #  };
     /// #
     /// let mut store = BTreeMap::new();
-    /// let cid = store.put(ipld!([1, 2, 3]), DagCborCodec, &Sha2_256, Version::V1).unwrap();
+    /// let cid = store.put(ipld!([1, 2, 3]), DagCborCodec, &Sha2_256, Version::V1);
     /// let observed = store.get_raw(&cid).unwrap();
     ///
     /// assert_eq!(observed, vec![131, 1, 2, 3]);
@@ -177,7 +181,7 @@ pub trait Store {
     /// # use inline_ipld::{store::traits::Store, ipld::inlined::InlineIpld};
     /// #
     /// # use libipld::{ipld, cid::Version};
-    /// # use libipld_cbor::DagCborCodec;
+    /// # use libipld::cbor::DagCborCodec;
     /// # use multihash::Code::Sha2_256;
     /// # use std::{collections::BTreeMap, str::FromStr};
     /// #
@@ -204,7 +208,7 @@ pub trait Store {
         digester: &D,
         cid_version: Version,
     ) where
-        Ipld: Encode<C>,
+        Ipld: EncodableAs<C>,
     {
         for (ref cid, dag) in Extractor::new(inline_ipld, codec, digester, cid_version) {
             self.put_keyed(cid, dag);

@@ -2,12 +2,12 @@
 use core::iter::Peekable;
 use libipld::ipld::Ipld;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serde-codec")]
 use serde::{Deserialize, Serialize};
 
 /// A post-order [`Ipld`] iterator
 #[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde-codec", derive(Deserialize, Serialize))]
 pub struct PostOrderIpldIter<'a> {
     inbound: Vec<&'a Ipld>,
     outbound: Vec<&'a Ipld>,

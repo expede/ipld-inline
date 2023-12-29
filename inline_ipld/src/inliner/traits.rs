@@ -3,7 +3,7 @@ use crate::{ipld::inlined::InlineIpld, store::traits::Store};
 use libipld::{Cid, Ipld};
 use std::ops::DerefMut;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serde-codec")]
 use serde::{Deserialize, Serialize};
 
 /// A trait for inlining [`Ipld`]
@@ -34,7 +34,7 @@ pub trait Inliner {
     /// #   }
     /// # };
     /// # use libipld::{ipld, Cid, cid::{CidGeneric, Version}};
-    /// # use libipld_cbor::DagCborCodec;
+    /// # use libipld::cbor::DagCborCodec;
     /// # use multihash::Code::Sha2_256;
     /// # use pretty_assertions::assert_eq;
     /// #
@@ -71,7 +71,7 @@ pub trait Inliner {
     /// #   }
     /// # };
     /// # use libipld::{ipld, Ipld, cid::{CidGeneric, Version}};
-    /// # use libipld_cbor::DagCborCodec;
+    /// # use libipld::cbor::DagCborCodec;
     /// # use multihash::Code::Sha2_256;
     /// # use std::str::FromStr;
     /// # use pretty_assertions::assert_eq;
@@ -97,10 +97,9 @@ pub trait Inliner {
 ///
 /// This struct can be [resolved][Stuck::resolve] to continue inlining.
 #[derive(PartialEq, Debug)]
-#[cfg_attr(feature = "serde", derive(Desasassaerialize, Serialize))]
+#[cfg_attr(feature = "serde-codec", derive(Deserialize, Serialize))]
 pub struct Stuck<I: Inliner + ?Sized> {
     pub(crate) inliner: Box<I>,
-
     needs: Cid,
 }
 
@@ -123,7 +122,7 @@ impl<I: Inliner> Stuck<I> {
     /// #   }
     /// # };
     /// # use libipld::{ipld, Ipld, cid::{CidGeneric, Version}, Cid};
-    /// # use libipld_cbor::DagCborCodec;
+    /// # use libipld::cbor::DagCborCodec;
     /// # use multihash::Code::Sha2_256;
     /// # use std::str::FromStr;
     /// # use pretty_assertions::assert_eq;
@@ -161,7 +160,7 @@ impl<I: Inliner> Stuck<I> {
     /// #   }
     /// # };
     /// # use libipld::{ipld, Ipld, cid::{CidGeneric, Version}, Cid};
-    /// # use libipld_cbor::DagCborCodec;
+    /// # use libipld::cbor::DagCborCodec;
     /// # use multihash::Code::Sha2_256;
     /// # use pretty_assertions::assert_eq;
     /// # use std::str::FromStr;
@@ -200,7 +199,7 @@ impl<I: Inliner> Stuck<I> {
     /// #   }
     /// # };
     /// # use libipld::{ipld, Ipld, cid::{CidGeneric, Version}, Cid};
-    /// # use libipld_cbor::DagCborCodec;
+    /// # use libipld::cbor::DagCborCodec;
     /// # use multihash::Code::Sha2_256;
     /// # use std::str::FromStr;
     /// # use pretty_assertions::assert_eq;

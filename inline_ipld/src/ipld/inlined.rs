@@ -1,21 +1,17 @@
 //! Newtype wrapper for [`InlineIpld`]
 
-use crate::cid;
-use libipld::{
-    cid::Version,
-    codec::{Codec, Encode},
-    ipld, Cid, Ipld,
-};
+use crate::{cid, ipld::encodable::EncodableAs};
+use libipld::{cid::Version, codec::Codec, ipld, Cid, Ipld};
 use multihash::MultihashDigest;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serde-codec")]
 use serde::{Deserialize, Serialize};
 
 /// Newtype wrapper for [`InlineIpld`]
 ///
 /// This is helpful to indictate that some form of inlining has already been performed.
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde-codec", derive(Deserialize, Serialize))]
 pub struct InlineIpld {
     ipld: Ipld,
 }
@@ -135,12 +131,12 @@ impl InlineIpld {
         ipld: Ipld,
     ) -> InlineIpld
     where
-        Ipld: Encode<C>,
+        Ipld: EncodableAs<C>,
     {
         InlineIpld {
             ipld: ipld!({
               "/": {
-                "link": Ipld::Link(cid::new(&ipld, codec, digester, Version::V1).unwrap()),
+                "link": Ipld::Link(cid::new(&ipld, codec, digester, Version::V1)),
                 "data": ipld,
               }
             }),
@@ -177,6 +173,6 @@ impl InlineIpld {
     /// assert_eq!(observed, ready)
     /// ```
     pub fn attest(ipld: Ipld) -> Self {
-        InlineIpld { ipld } // FIXME maybe this SHOULD be a ref?
+        InlineIpld { ipld }
     }
 }

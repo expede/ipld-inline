@@ -6,7 +6,7 @@ use crate::{
 use libipld::{cid::Cid, ipld::Ipld};
 use std::collections::BTreeMap;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serde-codec")]
 use serde::{Deserialize, Serialize};
 
 /// Inline directly, stopping at missing nodes, but without deduplication.
@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// In general, you should prefer the use of the [`Inliner`] interface, over [`Iterator`].
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde-codec", derive(Deserialize, Serialize))]
 pub struct AtLeastOnce<'a> {
     po: PostOrderIpldIter<'a>,
     stack: Vec<Ipld>,
@@ -94,7 +94,7 @@ impl<'a> Inliner for AtLeastOnce<'a> {
             }
         }
 
-        // Top of the inlined DAG. `pop` should only be empty if the Iterator was empty
+        // Top of the inlined DAG. `pop` should only be empty if the Iterator is (erroneously) empty.
         self.stack.pop().map(|ipld| Ok(InlineIpld::attest(ipld)))
     }
 }

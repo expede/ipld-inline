@@ -1,7 +1,7 @@
 //! Strategies for decomposing inlined [`Ipld`] to a DAG
 use crate::{
     cid,
-    ipld::inlined::InlineIpld,
+    ipld::{encodable::EncodableAs, inlined::InlineIpld},
     iterator::post_order::{is_delimiter_next, PostOrderIpldIter},
 };
 use core::iter::Peekable;
@@ -59,7 +59,7 @@ where
 
 impl<'a, C: Codec, D: MultihashDigest<64>> Iterator for Extractor<'a, C, D>
 where
-    Ipld: Encode<C>,
+    Ipld: EncodableAs<C>,
 {
     type Item = (Cid, Ipld);
 
@@ -67,12 +67,10 @@ where
         loop {
             match self.iterator.next() {
                 None => {
-                    return self.stack.pop().map(|x| {
-                        (
-                            cid::new(&x, self.codec, self.digester, self.cid_version).unwrap(),
-                            x,
-                        )
-                    });
+                    return self
+                        .stack
+                        .pop()
+                        .map(|x| (cid::new(&x, self.codec, self.digester, self.cid_version), x));
                 }
 
                 Some(Ipld::List(inner_list)) => {
@@ -92,8 +90,7 @@ where
                                 .pop()
                                 .expect("updated child node of 'data' should be on the stack"); // FIXME
 
-                            let cid = cid::new(&node, self.codec, self.digester, self.cid_version)
-                                .unwrap();
+                            let cid = cid::new(&node, self.codec, self.digester, self.cid_version);
 
                             self.stack.push(Ipld::Link(cid));
                             return Some((cid, node));
@@ -132,55 +129,36 @@ where
     }
 }
 
+// FIXME git exclude proptest regressions?
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_util::{cid_config::CidConfig, super_ipld::SuperIpld};
+    use libipld::cbor::DagCborCodec;
     use libipld::{cid::CidGeneric, ipld};
-    use libipld_cbor::DagCborCodec;
     use multihash::Code::Sha2_256;
     use pretty_assertions::assert_eq;
     use proptest::prelude::*;
     use std::collections::BTreeMap;
 
-    #[derive(Clone, Debug, PartialEq)]
-    struct MoreThanIpld(Ipld);
-
-    impl Arbitrary for MoreThanIpld {
-        type Parameters = ();
-        type Strategy = BoxedStrategy<Self>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            prop_oneof![
-                Just(Ipld::Null),
-                any::<bool>().prop_map(Ipld::Bool),
-                any::<Vec<u8>>().prop_map(Ipld::Bytes),
-                any::<i64>().prop_map(|i| { Ipld::Integer(i as i128) }), // because we're testing the DagCborCodec, and Ipld isn't type safe on `Ipld::Integer`s
-                any::<f64>().prop_map(Ipld::Float),
-                ".*".prop_map(Ipld::String),
-                any::<u32>().prop_map(|i| {
-                    let encoded = DagCborCodec.encode(&Ipld::Integer(i.into())).unwrap();
-                    let multihash = Sha2_256.digest(encoded.as_slice());
-                    let cid = Cid::new_v1(Sha2_256.into(), multihash);
-                    Ipld::Link(cid)
-                })
-            ]
-            .prop_recursive(8, 256, 64, |inner| {
-                prop_oneof![
-                    prop::collection::vec(inner.clone(), 0..64).prop_map(Ipld::List),
-                    prop::collection::btree_map(".*", inner, 0..64).prop_map(Ipld::Map),
-                ]
-            })
-            .prop_map(MoreThanIpld)
-            .boxed()
-        }
-    }
-
+    // FIXME more props!
     proptest! {
         #[test]
-        fn identity_prop_test(MoreThanIpld(ipld) in any::<MoreThanIpld>()) {
+        fn identity_ipld_prop_test((SuperIpld(ipld), CidConfig{ digester, version, .. }) in (any::<SuperIpld>(), any::<CidConfig>())) {
             let inline = InlineIpld::attest(ipld.clone());
-            let mut ext = Extractor::new(&inline, DagCborCodec, &Sha2_256, Version::V1);
-            prop_assert!(ext.next().unwrap().1 == ipld);
+            // FIXME generic codec
+            let mut ext = Extractor::new(&inline, DagCborCodec, &digester, version);
+            prop_assert_eq!(ext.next().unwrap().1, ipld);
+        }
+
+        #[test]
+        fn correct_cid_prop_test((SuperIpld(ipld), CidConfig{ digester, version, .. }) in (any::<SuperIpld>(), any::<CidConfig>())) {
+            let inline = InlineIpld::attest(ipld);
+            // FIXME generic codec
+            for (cid, dag) in Extractor::new(&inline, DagCborCodec, &digester, version) {
+              prop_assert_eq!(cid, cid::new(&dag, DagCborCodec, &digester, version));
+            }
         }
     }
 
@@ -191,8 +169,10 @@ mod tests {
         )
         .unwrap();
 
-        let ipld =
-            ipld!({"a": ["b", 1, 2, {"c": "d"}], "e": {"/": {"data": 123, "don't match": 42}}});
+        let ipld = ipld!({
+            "a": ["b", 1, 2, {"c": "d"}],
+            "e": {"/": {"data": 123, "don't match": 42}}
+        });
 
         let mut expected: BTreeMap<Cid, Ipld> = BTreeMap::new();
         expected.insert(cid, ipld.clone());
