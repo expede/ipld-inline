@@ -16,7 +16,7 @@ pub trait Inliner {
     ///
     /// * `self` - The [`Inliner`]
     /// * `ipld` - The [`Ipld`] to push into procesisng queue
-    fn resolve(&mut self, ipld: &Ipld);
+    fn resolve(&mut self, ipld: Ipld);
 
     /// Run the [`Inliner`] until completion or unable to progress
     ///
@@ -139,8 +139,8 @@ impl<I: Inliner> Stuck<I> {
     /// // The IPLD is now stored
     /// assert_eq!(store.get(cid).unwrap(), &ipld!([1, 2, 3]));
     /// ```
-    pub fn resolve<S: Store + ?Sized>(self, ipld: &Ipld, store: &mut S) -> Box<I> {
-        store.put_keyed(self.needs, ipld);
+    pub fn resolve<S: Store + ?Sized>(self, ipld: Ipld, store: &mut S) -> Box<I> {
+        store.put_keyed(self.needs, ipld.clone());
         self.stub(ipld)
     }
 
@@ -173,7 +173,7 @@ impl<I: Inliner> Stuck<I> {
     ///
     /// assert_eq!(observed.unwrap(), expected);
     /// ```
-    pub fn stub(mut self, ipld: &Ipld) -> Box<I> {
+    pub fn stub(mut self, ipld: Ipld) -> Box<I> {
         self.inliner
             .deref_mut()
             .resolve(InlineIpld::new(self.needs, ipld).into());
@@ -213,7 +213,7 @@ impl<I: Inliner> Stuck<I> {
     /// }
     /// ```
     pub fn ignore(mut self) -> Box<I> {
-        self.inliner.deref_mut().resolve(&Ipld::Link(self.needs));
+        self.inliner.deref_mut().resolve(Ipld::Link(self.needs));
         self.inliner
     }
 }
