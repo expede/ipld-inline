@@ -1,6 +1,7 @@
 //! Content-addressed store trait
 use crate::{
     cid,
+    codec::SafeCodec,
     extractor::Extractor,
     ipld::{encodable::EncodableAs, inlined::InlineIpld},
 };
@@ -9,9 +10,8 @@ use libipld::{
     codec::{Codec, Encode},
     error::{BlockNotFound, UnsupportedCodec},
     ipld::Ipld,
-    IpldCodec,
 };
-use multihash::MultihashDigest;
+use multihash::{Code::Sha2_256, MultihashDigest};
 use std::collections::BTreeMap;
 use thiserror::Error;
 
@@ -23,6 +23,10 @@ pub trait Store {
     ///
     /// * `self` - The block store
     /// * `cid` - The [`Cid`] to look up by
+    ///
+    /// # Errors
+    ///
+    /// * [`BlockNotFound`] - If the [`Cid`] is not found in the store
     ///
     /// # Examples
     ///
@@ -40,9 +44,9 @@ pub trait Store {
     /// let mut store = BTreeMap::new();
     /// let cid = store.put(block.clone(), DagCborCodec, &Sha2_256, Version::V1);
     ///
-    /// assert_eq!(Store::get(&store, &cid).unwrap(), &block);
+    /// assert_eq!(Store::get(&store, cid).unwrap(), &block);
     /// ```
-    fn get(&self, cid: &Cid) -> Result<&Ipld, BlockNotFound>;
+    fn get(&self, cid: Cid) -> Result<&Ipld, BlockNotFound>;
 
     /// Insert a block manually with a user-specified CID
     ///
@@ -66,11 +70,11 @@ pub trait Store {
     /// # let cid = FromStr::from_str("bafyreickxqyrg7hhhdm2z24kduovd4k4vvbmfmenzn7nc6pxg6qzjm2v44").unwrap();
     /// #
     /// let mut store = BTreeMap::new();
-    /// store.put_keyed(&cid, block.clone());
+    /// store.put_keyed(cid, block.clone());
     ///
-    /// assert_eq!(Store::get(&store, &cid).unwrap(), &block);
+    /// assert_eq!(Store::get(&store, cid).unwrap(), &block);
     /// ```
-    fn put_keyed(&mut self, cid: &Cid, ipld: Ipld);
+    fn put_keyed(&mut self, cid: Cid, ipld: Ipld);
 
     /// Insert a block into content addressed storage
     ///
@@ -100,7 +104,7 @@ pub trait Store {
     /// let mut store = BTreeMap::new();
     /// let cid = store.put(block.clone(), DagCborCodec, &Sha2_256, Version::V1);
     ///
-    /// assert_eq!(Store::get(&store, &cid).unwrap(), &block);
+    /// assert_eq!(Store::get(&store, cid).unwrap(), &block);
     /// ```
     fn put<C: Codec, D: MultihashDigest<64>>(
         &mut self,
@@ -113,18 +117,14 @@ pub trait Store {
         Ipld: EncodableAs<C>,
     {
         let block_cid = cid::new(&ipld, codec, digester, cid_version);
-        self.put_keyed(&block_cid, ipld);
+        self.put_keyed(block_cid, ipld);
         block_cid
     }
 
-    #[cfg(feature = "sha2")]
+    #[cfg(feature = "dag-cbor")]
     /// [`Store::put`] but defaults to [`Sha2_256`] and [`DagCborCodec`]
-    fn put_default(&mut self, ipld: Ipld) -> Result<Cid, cid::Error> {
-        use libipld::{
-            cbor::DagCborCodec,
-            cid::{multihash::Sha2_256, Version},
-        };
-
+    fn put_default(&mut self, ipld: Ipld) -> Cid {
+        use libipld_cbor::DagCborCodec;
         self.put(ipld, DagCborCodec, &Sha2_256, Version::V1)
     }
 
@@ -134,6 +134,10 @@ pub trait Store {
     ///
     /// * `self` - The block store
     /// * `cid` - The [`Cid`] to look up by
+    ///
+    /// # Errors
+    ///
+    /// * [`GetRawError`] - If the [`Cid`] is not found in the store, or if the [`Ipld`] cannot be encoded
     ///
     /// # Examples
     ///
@@ -149,18 +153,19 @@ pub trait Store {
     /// #
     /// let mut store = BTreeMap::new();
     /// let cid = store.put(ipld!([1, 2, 3]), DagCborCodec, &Sha2_256, Version::V1);
-    /// let observed = store.get_raw(&cid).unwrap();
+    /// let observed = store.get_raw(cid).unwrap();
     ///
     /// assert_eq!(observed, vec![131, 1, 2, 3]);
     /// ```
-    fn get_raw(&self, cid: &Cid) -> Result<Vec<u8>, GetRawError> {
+    fn get_raw(&self, cid: Cid) -> Result<Vec<u8>, GetRawError> {
+        // FIXME change UnknownCodec to unknown or unsafe
         let ipld = self.get(cid).map_err(GetRawError::NotFound)?;
         let codec_id: u64 = cid.codec();
-        let codec: IpldCodec = codec_id.try_into().map_err(GetRawError::UnknownCodec)?;
+        let codec: SafeCodec = codec_id.try_into().map_err(GetRawError::UnknownCodec)?;
 
         let mut buffer = vec![];
         ipld.encode(codec, &mut buffer)
-            .map_err(GetRawError::EncodeFailed)?;
+            .expect("should not fail is `EncodableAs` for your codec is implemented correctly");
 
         Ok(buffer)
     }
@@ -192,8 +197,8 @@ pub trait Store {
     /// let outer_cid = FromStr::from_str("bafyreignkagaefshuw6wloom3qh2mb2ytavv6y3s7sogi7hpeoetb7ejki").unwrap();
     ///
     /// let mut expected = BTreeMap::new();
-    /// expected.put_keyed(&inner_cid, ipld!([4, 5, 6]));
-    /// expected.put_keyed(&outer_cid, ipld!({"a": 123, "b": inner_cid}));
+    /// expected.put_keyed(inner_cid, ipld!([4, 5, 6]));
+    /// expected.put_keyed(outer_cid, ipld!({"a": 123, "b": inner_cid}));
     ///
     /// let mut observed = BTreeMap::new();
     /// let inlined = InlineIpld::attest(ipld!({"a": 123, "b": {"/": {"data": ipld!([4, 5, 6])}}}));
@@ -210,19 +215,19 @@ pub trait Store {
     ) where
         Ipld: EncodableAs<C>,
     {
-        for (ref cid, dag) in Extractor::new(inline_ipld, codec, digester, cid_version) {
+        for (cid, dag) in Extractor::new(inline_ipld, codec, digester, cid_version) {
             self.put_keyed(cid, dag);
         }
     }
 }
 
 impl Store for BTreeMap<Cid, Ipld> {
-    fn get(&self, cid: &Cid) -> Result<&Ipld, BlockNotFound> {
-        self.get(cid).ok_or(BlockNotFound(*cid))
+    fn get(&self, cid: Cid) -> Result<&Ipld, BlockNotFound> {
+        self.get(&cid).ok_or(BlockNotFound(cid))
     }
 
-    fn put_keyed(&mut self, cid: &Cid, ipld: Ipld) {
-        self.insert(*cid, ipld);
+    fn put_keyed(&mut self, cid: Cid, ipld: Ipld) {
+        self.insert(cid, ipld);
     }
 }
 
@@ -236,11 +241,6 @@ pub enum GetRawError {
     /// Forwards a (lifted) [UnsupportedCodec]
     #[error(transparent)]
     UnknownCodec(#[from] UnsupportedCodec),
-
-    /// Forwards a (lifted) [libipld::error::Error]
-    /// Note that these are never comparable
-    #[error("failed to encode to bytes")]
-    EncodeFailed(#[from] libipld::error::Error),
 }
 
 impl PartialEq for GetRawError {

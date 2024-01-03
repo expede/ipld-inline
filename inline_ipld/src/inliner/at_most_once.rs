@@ -7,9 +7,6 @@ use crate::{ipld::inlined::InlineIpld, store::traits::Store};
 use libipld::{cid::Cid, ipld::Ipld};
 use std::collections::HashSet;
 
-#[cfg(feature = "serde-codec")]
-use serde::{Deserialize, Serialize};
-
 /// [`Ipld`] inliner that only inlines a [`Cid`] at most once, if avalaible
 ///
 /// This behaves as an "exactly once" if all subgraphs are available
@@ -17,7 +14,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// In general, you should prefer the use of the [`Inliner`] interface, over [`Iterator`].
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde-codec", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde-codec", derive(serde::Serialize))]
 pub struct AtMostOnce<'a> {
     at_least_once: AtLeastOnce<'a>,
     seen: HashSet<Cid>,
@@ -64,7 +61,7 @@ impl<'a> Iterator for AtMostOnce<'a> {
 
 impl<'a> Inliner for AtMostOnce<'a> {
     fn resolve(&mut self, ipld: Ipld) {
-        self.at_least_once.resolve(ipld)
+        self.at_least_once.resolve(ipld);
     }
 
     fn run<S: Store + ?Sized>(self, store: &S) -> Option<Result<InlineIpld, Stuck<Self>>> {

@@ -22,15 +22,16 @@ use std::io::Write;
 /// ```
 ///
 /// [^gdp]: For more on this technique, see the [Ghosts of Departed Proofs](https://kataskeue.com/gdp.pdf) paper.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde-codec", derive(serde::Deserialize, serde::Serialize))]
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-codec", derive(serde::Serialize))]
 pub struct EncodableIpld<'a, C>
 where
     C: Codec,
     Ipld: Encode<C>,
 {
-    pub(super) ipld: &'a Ipld,
-    pub(super) codec: C,
+    // FIXME visibility
+    pub(crate) ipld: &'a Ipld,
+    pub(crate) codec: C,
 }
 
 impl<'a, C: Codec> EncodableIpld<'a, C>
@@ -54,7 +55,7 @@ where
     /// ```
     pub fn guaranteed_encode(&self) -> Vec<u8> {
         self.codec
-            .encode(self.into())
+            .encode(self)
             .expect("should never fail if `to_encodable` is implemented correctly")
     }
 }

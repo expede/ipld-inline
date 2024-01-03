@@ -6,9 +6,6 @@ use crate::{
 use libipld::{cid::Cid, ipld::Ipld};
 use std::collections::BTreeMap;
 
-#[cfg(feature = "serde-codec")]
-use serde::{Deserialize, Serialize};
-
 /// Inline directly, stopping at missing nodes, but without deduplication.
 ///
 /// This inlining strategy tries its best, but:
@@ -17,7 +14,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// In general, you should prefer the use of the [`Inliner`] interface, over [`Iterator`].
 #[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde-codec", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde-codec", derive(serde::Serialize))]
 pub struct AtLeastOnce<'a> {
     po: PostOrderIpldIter<'a>,
     stack: Vec<Ipld>,
@@ -26,6 +23,7 @@ pub struct AtLeastOnce<'a> {
 
 impl<'a> AtLeastOnce<'a> {
     /// Initialize a new [`AtLeastOnce`] inliner
+    #[allow(clippy::must_use_candidate)]
     pub fn new(ipld: &'a Ipld) -> Self {
         AtLeastOnce {
             po: PostOrderIpldIter::from(ipld),
@@ -60,13 +58,13 @@ impl<'a> Inliner for AtLeastOnce<'a> {
         for node in &mut self.po {
             match node {
                 Ipld::Link(cid) => {
-                    if let Ok(ipld) = store.get(&cid) {
+                    if let Ok(ipld) = store.get(*cid) {
                         let mut inner = BTreeMap::new();
-                        inner.insert("link".to_string(), Ipld::Link(*cid));
-                        inner.insert("data".to_string(), ipld.clone());
+                        inner.insert("link".into(), Ipld::Link(*cid));
+                        inner.insert("data".into(), ipld.clone()); // FIXME clone
 
                         let mut outer = BTreeMap::new();
-                        outer.insert("/".to_string(), Ipld::Map(inner));
+                        outer.insert("/".into(), Ipld::Map(inner));
 
                         self.stack.push(Ipld::Map(outer));
                     } else {

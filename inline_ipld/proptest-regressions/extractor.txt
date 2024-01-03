@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 3c4f616e96488fe64033cf14aa511c77973f46b844dc349ab1eb7a05d925752e # shrinks to (SuperIpld(ipld), CidConfig { digester, version, codec }) = (SuperIpld([18628461012761445004]), CidConfig { codec: DagCbor(DagCborCodec), digester: Sha2_512, version: V1 })
+cc 43c58fc9c61f3dfd2c54f878da013b1685f33af7ccdcd19261ffa38f142c6ba3 # shrinks to (SuperIpld(ipld), CidConfig { digester, version, .. }) = (SuperIpld({"": -18536767259745223600}), CidConfig { codec: DagJson(DagJsonCodec), digester: Sha2_512, version: V1 })

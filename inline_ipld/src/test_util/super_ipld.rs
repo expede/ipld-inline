@@ -1,27 +1,24 @@
-use crate::{
-    cid,
-    test_util::{cid_config::CidConfig, some_codec::SomeCodec},
-};
-use libipld::{cbor::DagCborCodec, Ipld, IpldCodec};
+use crate::{cid, codec::SafeCodec, test_util::cid_config::CidConfig};
+use libipld::Ipld;
 use proptest::prelude::*;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SuperIpld(pub Ipld);
 
 impl Arbitrary for SuperIpld {
-    type Parameters = SomeCodec;
+    type Parameters = ();
     type Strategy = BoxedStrategy<Self>;
 
-    fn arbitrary_with(codec: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
         let leaf = prop_oneof![
             Just(Ipld::Null),
             any::<bool>().prop_map(Ipld::Bool),
             any::<Vec<u8>>().prop_map(Ipld::Bytes),
-            any::<i128>().prop_map(move |i| {
-                match codec {
-                    SomeCodec(IpldCodec::DagCbor) => Ipld::Integer((i as i64).into()),
-                    _ => Ipld::Integer(i),
-                }
+            any::<i128>().prop_flat_map(move |i| {
+                any::<SafeCodec>().prop_map(move |codec| match codec {
+                    SafeCodec::DagCbor(_) => Ipld::Integer((i as i64).into()),
+                    SafeCodec::DagJson(_) => Ipld::Integer((i % (2 ^ 53)).into()), // RAGE
+                })
             }),
             any::<f64>().prop_map(Ipld::Float),
             ".*".prop_map(Ipld::String),
@@ -30,11 +27,13 @@ impl Arbitrary for SuperIpld {
                 |(
                     some_u64,
                     CidConfig {
-                        digester, version, ..
+                        digester,
+                        version,
+                        codec,
                     },
                 )| Ipld::Link(cid::new(
                     &Ipld::Integer(some_u64 as i128),
-                    DagCborCodec, // FIXME make generic
+                    codec,
                     &digester,
                     version
                 ))

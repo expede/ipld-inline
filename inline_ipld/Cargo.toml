@@ -30,8 +30,7 @@ name = "bench"
 harness = false
 
 [features]
-default = ["dag-cbor", "dag-json", "dag-pb"] # FIXME , "serde-codec"]
+default = ["dag-cbor", "dag-json", "serde-codec"]
 dag-cbor = ["libipld-cbor"]
 dag-json = ["libipld-json"]
-dag-pb = ["libipld-pb"]
 serde-codec = ["libipld/serde-codec", "serde"]

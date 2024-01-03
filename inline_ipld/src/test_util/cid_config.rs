@@ -1,10 +1,11 @@
-use super::{some_codec::SomeCodec, super_multihash::SuperMultihash};
-use libipld::{cid, cid::multihash::Code, codec_impl::IpldCodec};
+use super::super_multihash::SuperMultihash;
+use crate::codec::SafeCodec;
+use libipld::{cid, cid::multihash::Code};
 use proptest::prelude::*;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct CidConfig {
-    pub codec: IpldCodec,
+    pub codec: SafeCodec,
     pub digester: Code,
     pub version: cid::Version,
 }
@@ -15,14 +16,14 @@ impl Arbitrary for CidConfig {
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         prop_oneof![
-            // FIXME IPLD encoding in libipld always fails with DagPb, so generic CID v0 fails
+            // IPLD encoding in libipld currently always fails with DagPb, so generic CID v0 fails
             // any::<SuperMultihash>().prop_map(|SuperMultihash(digester)| CidConfig {
             //     digester: digester,
             //     codec: IpldCodec::DagPb,
             //     version: cid::Version::V0,
             // }),
-            (any::<SuperMultihash>(), any::<SomeCodec>()).prop_map(
-                |(SuperMultihash(digester), SomeCodec(codec))| {
+            (any::<SuperMultihash>(), any::<SafeCodec>()).prop_map(
+                |(SuperMultihash(digester), codec)| {
                     CidConfig {
                         codec,
                         digester,

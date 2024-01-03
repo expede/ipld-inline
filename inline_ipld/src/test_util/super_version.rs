@@ -1,7 +1,7 @@
 use libipld::cid::Version;
 use proptest::prelude::*;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct SuperVersion(pub Version);
 
 impl SuperVersion {

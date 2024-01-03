@@ -129,8 +129,6 @@ where
     }
 }
 
-// FIXME git exclude proptest regressions?
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,10 +143,10 @@ mod tests {
     // FIXME more props!
     proptest! {
         #[test]
-        fn identity_ipld_prop_test((SuperIpld(ipld), CidConfig{ digester, version, .. }) in (any::<SuperIpld>(), any::<CidConfig>())) {
+        fn identity_ipld_prop_test((SuperIpld(ipld), CidConfig{ digester, version, codec }) in (any::<SuperIpld>(), any::<CidConfig>())) {
             let inline = InlineIpld::attest(ipld.clone());
             // FIXME generic codec
-            let mut ext = Extractor::new(&inline, DagCborCodec, &digester, version);
+            let mut ext = Extractor::new(&inline, codec, &digester, version);
             prop_assert_eq!(ext.next().unwrap().1, ipld);
         }
 

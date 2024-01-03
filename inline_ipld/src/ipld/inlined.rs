@@ -4,16 +4,14 @@ use crate::{cid, ipld::encodable::EncodableAs};
 use libipld::{cid::Version, codec::Codec, ipld, Cid, Ipld};
 use multihash::MultihashDigest;
 
-#[cfg(feature = "serde-codec")]
-use serde::{Deserialize, Serialize};
-
 /// Newtype wrapper for [`InlineIpld`]
 ///
 /// This is helpful to indictate that some form of inlining has already been performed.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde-codec", derive(Deserialize, Serialize))]
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde-codec", derive(serde::Deserialize, serde::Serialize))]
 pub struct InlineIpld {
     ipld: Ipld,
+    cid: Option<Cid>,
 }
 
 impl PartialEq<Ipld> for InlineIpld {
@@ -25,6 +23,14 @@ impl PartialEq<Ipld> for InlineIpld {
 impl From<InlineIpld> for Ipld {
     fn from(inline: InlineIpld) -> Ipld {
         inline.ipld
+    }
+}
+
+impl TryFrom<InlineIpld> for Cid {
+    type Error = ();
+
+    fn try_from(inline: InlineIpld) -> Result<Cid, ()> {
+        inline.cid.ok_or(())
     }
 }
 
@@ -58,8 +64,11 @@ impl InlineIpld {
     ///   }
     /// }));
     /// ```
+    /// FIXME Rename to `inline`
+    /// FIXME test ipld! macro with InlineIpld to see if it wraps automagically
     pub fn wrap(cid: Cid, ipld: Ipld) -> Self {
         InlineIpld {
+            cid: Some(cid),
             ipld: ipld!({
               "/": {
                 "link": Ipld::Link(cid),
@@ -92,6 +101,7 @@ impl InlineIpld {
     /// ```
     pub fn wrap_inherit_link(ipld: Ipld) -> Self {
         InlineIpld {
+            cid: None,
             ipld: ipld!({"/": {"data": ipld!(ipld)}}),
         }
     }
@@ -125,6 +135,7 @@ impl InlineIpld {
     /// let observed = InlineIpld::wrap_with_link(DagCborCodec, &Sha2_256, ipld!([1, 2, 3]));
     /// assert_eq!(observed, ipld!({"/": {"data": ipld!([1,2, 3]), "link": cid}}));
     /// ```
+    #[allow(clippy::doc_markdown)]
     pub fn wrap_with_link<C: Codec, D: MultihashDigest<64>>(
         codec: C,
         digester: &D,
@@ -133,10 +144,12 @@ impl InlineIpld {
     where
         Ipld: EncodableAs<C>,
     {
+        let cid = cid::new(&ipld, codec, digester, Version::V1);
         InlineIpld {
+            cid: Some(cid),
             ipld: ipld!({
               "/": {
-                "link": Ipld::Link(cid::new(&ipld, codec, digester, Version::V1)),
+                "link": Ipld::Link(cid),
                 "data": ipld,
               }
             }),
@@ -173,6 +186,31 @@ impl InlineIpld {
     /// assert_eq!(observed, ready)
     /// ```
     pub fn attest(ipld: Ipld) -> Self {
-        InlineIpld { ipld }
+        InlineIpld { ipld, cid: None }
+    }
+
+    /// Retrieve the (optional) [`Cid`]
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use inline_ipld::{cid, ipld::inlined::InlineIpld};
+    /// # use std::str::FromStr;
+    /// # use multihash::Code::Sha2_256;
+    /// # use libipld::{
+    /// #     cid::Version,
+    /// #     cbor::DagCborCodec,
+    /// #     ipld,
+    /// #     Ipld,
+    /// #     Cid
+    /// # };
+    /// #
+    /// let ipld = ipld!({"a": 1, "b": {"/": {"data": [1, 2, 3]}}});
+    /// let cid = cid::new(&ipld, DagCborCodec, &Sha2_256, Version::V1);
+    /// let inlined = InlineIpld::wrap(cid, ipld);
+    /// assert_eq!(inlined.cid(), Some(cid));
+    /// ```
+    pub fn cid(&self) -> Option<Cid> {
+        self.cid
     }
 }

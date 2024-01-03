@@ -1,7 +1,7 @@
 use libipld::cid::multihash::Code;
 use proptest::prelude::*;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct SuperMultihash(pub Code);
 
 impl SuperMultihash {

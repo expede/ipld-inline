@@ -3,9 +3,6 @@ use crate::{ipld::inlined::InlineIpld, store::traits::Store};
 use libipld::{Cid, Ipld};
 use std::ops::DerefMut;
 
-#[cfg(feature = "serde-codec")]
-use serde::{Deserialize, Serialize};
-
 /// A trait for inlining [`Ipld`]
 pub trait Inliner {
     /// Unblock a stuck [`Iterator`].
@@ -97,9 +94,9 @@ pub trait Inliner {
 ///
 /// This struct can be [resolved][Stuck::resolve] to continue inlining.
 #[derive(PartialEq, Debug)]
-#[cfg_attr(feature = "serde-codec", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde-codec", derive(serde::Deserialize, serde::Serialize))]
 pub struct Stuck<I: Inliner + ?Sized> {
-    pub(crate) inliner: Box<I>,
+    inliner: Box<I>,
     needs: Cid,
 }
 
@@ -140,10 +137,10 @@ impl<I: Inliner> Stuck<I> {
     /// assert_eq!(observed.unwrap(), expected);
     ///
     /// // The IPLD is now stored
-    /// assert_eq!(store.get(&cid).unwrap(), &ipld!([1, 2, 3]));
+    /// assert_eq!(store.get(cid).unwrap(), &ipld!([1, 2, 3]));
     /// ```
     pub fn resolve<S: Store + ?Sized>(self, ipld: Ipld, store: &mut S) -> Box<I> {
-        store.put_keyed(&self.needs, ipld.clone());
+        store.put_keyed(self.needs, ipld.clone());
         self.stub(ipld)
     }
 

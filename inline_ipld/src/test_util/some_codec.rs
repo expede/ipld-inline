@@ -1,7 +1,7 @@
 use libipld::codec_impl::IpldCodec;
 use proptest::prelude::*;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct SomeCodec(pub IpldCodec);
 
 impl SomeCodec {
@@ -34,15 +34,8 @@ impl Arbitrary for SomeCodec {
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         prop_oneof![
-            // The Raw codec ONLY works on raw byte streams, which is kind of like a base case.
-            // Sadly that breaks the encoding contract, so we ignore it here.
-            //
-            // I wish this was more typesafe.
-            //
-            // Just(IpldCodec::Raw),
-
-            // FIXME ANNOYING! Can't create CIDs with these codecs. Dafuq
-            // Just(IpldCodec::DagPb),
+            Just(IpldCodec::Raw),
+            Just(IpldCodec::DagPb),
             Just(IpldCodec::DagCbor),
             Just(IpldCodec::DagJson),
         ]

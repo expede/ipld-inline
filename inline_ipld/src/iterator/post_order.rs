@@ -2,12 +2,9 @@
 use core::iter::Peekable;
 use libipld::ipld::Ipld;
 
-#[cfg(feature = "serde-codec")]
-use serde::{Deserialize, Serialize};
-
 /// A post-order [`Ipld`] iterator
 #[derive(Clone, Debug, Default, PartialEq)]
-#[cfg_attr(feature = "serde-codec", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde-codec", derive(serde::Serialize))]
 pub struct PostOrderIpldIter<'a> {
     inbound: Vec<&'a Ipld>,
     outbound: Vec<&'a Ipld>,
@@ -70,7 +67,7 @@ impl<'a> Iterator for PostOrderIpldIter<'a> {
 ///
 /// assert_eq!(is_delimiter_next(&mut poii.peekable()), true);
 /// ```
-pub fn is_delimiter_next<'a>(poii: &mut Peekable<PostOrderIpldIter<'a>>) -> bool {
+pub fn is_delimiter_next(poii: &mut Peekable<PostOrderIpldIter>) -> bool {
     match poii.peek() {
         Some(Ipld::Map(next_btree)) => next_btree.keys().eq(["/"].iter()),
         _ => false,

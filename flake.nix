@@ -113,32 +113,32 @@
           commands = [
             {
               name     = "release";
-              help     = "[DEFAULT] Release (optimized build) for current native target";
+              help     = "[DEFAULT] Release (optimized build) for current host target";
               category = "release";
-              command  = "release:native";
+              command  = "release:host";
             }
             {
-              name     = "release:native";
-              help     = "Release for current native target";
+              name     = "release:host";
+              help     = "Release for current host target";
               category = "release";
               command  = "${pkgs.cargo}/bin/cargo build --release -p inline_ipld";
             }
             {
               name     = "release:wasm";
-              help     = "Release for current native target";
+              help     = "Release for current host target";
               category = "release";
               command  = "${pkgs.cargo}/bin/cargo build --release -p inline_ipld_wasm";
             }
             # Build
             {
               name     = "build";
-              help     = "[DEFAULT] Build for current native target";
+              help     = "[DEFAULT] Build for current host target";
               category = "build";
-              command  = "build:native";
+              command  = "build:host";
             }
             {
-              name     = "build:native";
-              help     = "Build for current native target";
+              name     = "build:host";
+              help     = "Build for current host target";
               category = "build";
               command  = "${pkgs.cargo}/bin/cargo build -p inline_ipld";
             }
@@ -156,14 +156,14 @@
             }
             # Bench
             {
-              name     = "bench:native";
-              help     = "Run native Criterion benchmarks";
+              name     = "bench:host";
+              help     = "Run host Criterion benchmarks";
               category = "dev";
               command  = "${pkgs.cargo}/bin/cargo criterion -p inline_ipld";
             }
             {
-              name     = "bench:native:open";
-              help     = "Open native Criterion benchmarks in browser";
+              name     = "bench:host:open";
+              help     = "Open host Criterion benchmarks in browser";
               category = "dev";
               command  = "${pkgs.xdg-utils}/bin/xdg-open ./target/criterion/report/index.html";
             }
@@ -188,14 +188,14 @@
             }
             # Watch
             {
-              name     = "watch:build:native";
-              help     = "Rebuild native target on save";
+              name     = "watch:build:host";
+              help     = "Rebuild host target on save";
               category = "watch";
               command  = "${pkgs.cargo}/bin/cargo watch --clear -C ./inline_ipld";
             }
             {
               name     = "watch:build:wasm";
-              help     = "Rebuild native target on save";
+              help     = "Rebuild host target on save";
               category = "watch";
               command  = "${pkgs.cargo}/bin/cargo watch --clear --features=serde -C ./inline_ipld_wasm";
             }
@@ -212,13 +212,13 @@
               command  = "${pkgs.cargo}/bin/cargo watch --clear --exec 'clippy -- -W clippy::pedantic'";
             }
             {
-              name     = "watch:test:native";
+              name     = "watch:test:host";
               help     = "Run all tests on save";
               category = "watch";
               command  = "${pkgs.cargo}/bin/cargo watch --clear --workdir ./inline_ipld --exec test";
             }
             {
-              name     = "watch:test:docs:native";
+              name     = "watch:test:docs:host";
               help     = "Run all tests on save";
               category = "watch";
               command  = "${pkgs.cargo}/bin/cargo watch --clear --workdir ./inline_ipld --exec test";
@@ -228,11 +228,11 @@
               name     = "test:all";
               help     = "Run Cargo tests";
               category = "test";
-              command  = "test:native && test:docs && test:wasm";
+              command  = "test:host && test:docs && test:wasm";
             }
             {
-              name     = "test:native";
-              help     = "Run Cargo tests for native target";
+              name     = "test:host";
+              help     = "Run Cargo tests for host target";
               category = "test";
               command  = "${pkgs.cargo}/bin/cargo test -p inline_ipld";
             }
