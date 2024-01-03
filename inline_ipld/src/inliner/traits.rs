@@ -1,5 +1,5 @@
 //! Traits for inlining [`Ipld`]
-use crate::{ipld::InlineIpld, store::Store};
+use crate::{store::Store, InlineIpld};
 use libipld::{Cid, Ipld};
 use std::ops::DerefMut;
 
@@ -24,9 +24,9 @@ pub trait Inliner {
     ///
     /// ```
     /// # use inline_ipld::{
-    /// #   inliner::{at_least_once::AtLeastOnce, traits::Inliner},
+    /// #   inliner::{AtLeastOnce, Inliner},
     /// #   store::{
-    /// #     traits::Store,
+    /// #     Store,
     /// #     MemoryStore
     /// #   }
     /// # };
@@ -59,11 +59,12 @@ pub trait Inliner {
     /// ```
     /// # use inline_ipld::{
     /// #   inliner::{
-    /// #     at_least_once::AtLeastOnce,
-    /// #     traits::{Inliner, Stuck}
+    /// #     AtLeastOnce,
+    /// #     Inliner,
+    /// #     Stuck
     /// #   },
     /// #   store::{
-    /// #     traits::Store,
+    /// #     Store,
     /// #     MemoryStore
     /// #   }
     /// # };
@@ -112,9 +113,9 @@ impl<I: Inliner> Stuck<I> {
     ///
     /// ```
     /// # use inline_ipld::{
-    /// #   inliner::{at_least_once::AtLeastOnce, traits::Inliner},
+    /// #   inliner::{AtLeastOnce, Inliner},
     /// #   store::{
-    /// #     traits::Store,
+    /// #     Store,
     /// #     MemoryStore
     /// #   }
     /// # };
@@ -150,9 +151,9 @@ impl<I: Inliner> Stuck<I> {
     ///
     /// ```
     /// # use inline_ipld::{
-    /// #   inliner::{at_least_once::AtLeastOnce, traits::Inliner},
+    /// #   inliner::{AtLeastOnce, Inliner},
     /// #   store::{
-    /// #     traits::Store,
+    /// #     Store,
     /// #     MemoryStore
     /// #   }
     /// # };
@@ -189,9 +190,9 @@ impl<I: Inliner> Stuck<I> {
     ///
     /// ```
     /// # use inline_ipld::{
-    /// #   inliner::{at_least_once::AtLeastOnce, traits::Inliner},
+    /// #   inliner::{AtLeastOnce, Inliner},
     /// #   store::{
-    /// #     traits::Store,
+    /// #     Store,
     /// #     MemoryStore
     /// #   }
     /// # };

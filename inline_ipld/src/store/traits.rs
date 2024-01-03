@@ -1,6 +1,6 @@
 //! Content-addressed store trait
 
-use crate::{cid, codec, codec::EncodableAs, extractor::Extractor, ipld::InlineIpld};
+use crate::{cid, codec, codec::EncodableAs, extractor::Extractor, InlineIpld};
 use libipld::{
     cid::{Cid, Version},
     codec::{Codec, Encode},
@@ -38,7 +38,7 @@ pub trait Store {
     /// #
     /// let block = ipld!([1, 2, 3]);
     /// let mut store = BTreeMap::new();
-    /// let cid = store.put(block.clone(), DagCborCodec, &Sha2_256, Version::V1);
+    /// let cid = store.put(&block, DagCborCodec, &Sha2_256, Version::V1);
     ///
     /// assert_eq!(Store::get(&store, cid).unwrap(), &block);
     /// ```
@@ -66,7 +66,7 @@ pub trait Store {
     /// # let cid = FromStr::from_str("bafyreickxqyrg7hhhdm2z24kduovd4k4vvbmfmenzn7nc6pxg6qzjm2v44").unwrap();
     /// #
     /// let mut store = BTreeMap::new();
-    /// store.put_keyed(cid, block.clone());
+    /// store.put_keyed(cid, &block);
     ///
     /// assert_eq!(Store::get(&store, cid).unwrap(), &block);
     /// ```
@@ -98,7 +98,7 @@ pub trait Store {
     /// #
     /// let block = ipld!([1, 2, 3]);
     /// let mut store = BTreeMap::new();
-    /// let cid = store.put(block.clone(), DagCborCodec, &Sha2_256, Version::V1);
+    /// let cid = store.put(&block, DagCborCodec, &Sha2_256, Version::V1);
     ///
     /// assert_eq!(Store::get(&store, cid).unwrap(), &block);
     /// ```
@@ -148,7 +148,7 @@ pub trait Store {
     /// #  };
     /// #
     /// let mut store = BTreeMap::new();
-    /// let cid = store.put(ipld!([1, 2, 3]), DagCborCodec, &Sha2_256, Version::V1);
+    /// let cid = store.put(&ipld!([1, 2, 3]), DagCborCodec, &Sha2_256, Version::V1);
     /// let observed = store.get_raw(cid).unwrap();
     ///
     /// assert_eq!(observed, vec![131, 1, 2, 3]);
@@ -178,7 +178,7 @@ pub trait Store {
     /// # Examples
     ///
     /// ```
-    /// # use inline_ipld::{store::Store, ipld::inline::Inline};
+    /// # use inline_ipld::{store::Store, InlineIpld};
     /// #
     /// # use libipld::{ipld, cid::Version};
     /// # use libipld::cbor::DagCborCodec;
@@ -192,8 +192,8 @@ pub trait Store {
     /// let outer_cid = FromStr::from_str("bafyreignkagaefshuw6wloom3qh2mb2ytavv6y3s7sogi7hpeoetb7ejki").unwrap();
     ///
     /// let mut expected = BTreeMap::new();
-    /// expected.put_keyed(inner_cid, ipld!([4, 5, 6]));
-    /// expected.put_keyed(outer_cid, ipld!({"a": 123, "b": inner_cid}));
+    /// expected.put_keyed(inner_cid, &ipld!([4, 5, 6]));
+    /// expected.put_keyed(outer_cid, &ipld!({"a": 123, "b": inner_cid}));
     ///
     /// let mut observed = BTreeMap::new();
     /// let inlined = InlineIpld::attest(ipld!({"a": 123, "b": {"/": {"data": ipld!([4, 5, 6])}}}));

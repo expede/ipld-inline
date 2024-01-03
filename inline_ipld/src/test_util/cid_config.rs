@@ -1,5 +1,5 @@
 use super::super_multihash::SuperMultihash;
-use crate::codec::Total;
+use crate::codec;
 use libipld::{cid, cid::multihash::Code};
 use proptest::prelude::*;
 

@@ -1,6 +1,6 @@
 //! Inline each subgraph at _least_ once (without deduplication)
 use super::traits::{Inliner, Stuck};
-use crate::{ipld::InlineIpld, iterator::PostOrderIpldIter, store::Store};
+use crate::{iterator::PostOrderIpldIter, store::Store, InlineIpld};
 use libipld::{cid::Cid, ipld::Ipld};
 use std::collections::BTreeMap;
 

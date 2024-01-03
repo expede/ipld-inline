@@ -1,4 +1,4 @@
-use crate::{cid, codec::Total, test_util::cid_config::CidConfig};
+use crate::{cid, codec, test_util::cid_config::CidConfig};
 use libipld::Ipld;
 use proptest::prelude::*;
 

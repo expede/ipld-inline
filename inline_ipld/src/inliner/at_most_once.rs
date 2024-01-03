@@ -1,9 +1,9 @@
 //! Inline each subgraph at _most_ once (with deduplication)
 use super::{
-    at_least_once::AtLeastOnce,
     traits::{Inliner, Stuck},
+    AtLeastOnce,
 };
-use crate::{ipld::InlineIpld, store::Store};
+use crate::{store::Store, InlineIpld};
 use libipld::{cid::Cid, ipld::Ipld};
 use std::collections::HashSet;
 

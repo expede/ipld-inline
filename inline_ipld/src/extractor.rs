@@ -5,8 +5,8 @@
 use crate::{
     cid,
     codec::EncodableAs,
-    ipld::InlineIpld,
     iterator::{is_delimiter_next, PostOrderIpldIter},
+    InlineIpld,
 };
 use core::iter::Peekable;
 use libipld::{
@@ -137,8 +137,8 @@ where
 mod tests {
     use super::*;
     use crate::{
-        ipld::InlineIpld,
         test_util::{cid_config::CidConfig, super_ipld::SuperIpld},
+        InlineIpld,
     };
     use libipld::cbor::DagCborCodec;
     use libipld::{cid::CidGeneric, ipld};
@@ -196,7 +196,7 @@ mod tests {
         )
         .unwrap();
 
-        let inline = InlineIpld::wrap(arr_cid, ipld!([1, 2, 3]));
+        let inline = InlineIpld::new(arr_cid, ipld!([1, 2, 3]));
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
         for (cid, node) in Extractor::new(&inline, DagCborCodec, &Sha2_256, Version::V1) {
@@ -232,7 +232,7 @@ mod tests {
         )
         .unwrap();
 
-        let inline = InlineIpld::wrap(arr_cid, ipld!([1, 2, 3]));
+        let inline = InlineIpld::new(arr_cid, ipld!([1, 2, 3]));
 
         let mut observed: BTreeMap<Cid, Ipld> = BTreeMap::new();
         for (cid, node) in Extractor::new(&inline, DagCborCodec, &Sha2_256, Version::V1) {

@@ -42,7 +42,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use inline_ipld::ipld::encodable::{EncodableAs, EncodableIpld};
+    /// # use inline_ipld::codec::{EncodableAs, EncodableIpld};
     /// # use libipld::{ipld, codec::Codec};
     /// # use libipld_cbor::DagCborCodec;
     /// # use pretty_assertions::assert_eq;

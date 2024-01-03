@@ -49,7 +49,7 @@ impl InlineIpld {
     /// * `ipld` - The [`Ipld`] to inline
     ///
     /// ```
-    /// # use inline_ipld::{cid, ipld::inline::InlineIpld};
+    /// # use inline_ipld::{cid, InlineIpld};
     /// # use libipld::{ipld, Ipld, Cid};
     /// # use std::str::FromStr;
     /// #
@@ -89,7 +89,7 @@ impl InlineIpld {
     /// # Examples
     ///
     /// ```
-    /// # use inline_ipld::{cid, ipld::inline::InlineIpld};
+    /// # use inline_ipld::{cid, InlineIpld};
     /// # use libipld::{ipld, Ipld};
     /// #
     /// let observed = InlineIpld::new_inherit_link(ipld!([1, 2, 3]));
@@ -116,7 +116,7 @@ impl InlineIpld {
     /// # Examples
     ///
     /// ```
-    /// # use inline_ipld::{cid, ipld::inline::InlineIpld};
+    /// # use inline_ipld::{cid, InlineIpld};
     /// # use std::str::FromStr;
     /// # use multihash::Code::Sha2_256;
     /// # use libipld::{
@@ -140,7 +140,7 @@ impl InlineIpld {
     /// # Examples
     ///
     /// ```
-    /// # use inline_ipld::{cid, ipld::inline::InlineIpld};
+    /// # use inline_ipld::{cid, InlineIpld};
     /// # use std::str::FromStr;
     /// # use multihash::Code::Sha2_256;
     /// # use libipld::{
@@ -153,7 +153,7 @@ impl InlineIpld {
     /// #
     /// let ipld = ipld!({"a": 1, "b": {"/": {"data": [1, 2, 3]}}});
     /// let cid = cid::new(&ipld, DagCborCodec, &Sha2_256, Version::V1);
-    /// let inlined = InlineIpld::wrap(cid, ipld);
+    /// let inlined = InlineIpld::new(cid, ipld);
     /// assert_eq!(inlined.cid(), Some(cid));
     /// ```
     pub fn cid(&self) -> Option<Cid> {
