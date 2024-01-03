@@ -1,4 +1,4 @@
-use crate::{cid, codec::SafeCodec, test_util::cid_config::CidConfig};
+use crate::{cid, codec::Total, test_util::cid_config::CidConfig};
 use libipld::Ipld;
 use proptest::prelude::*;
 
@@ -15,9 +15,9 @@ impl Arbitrary for SuperIpld {
             any::<bool>().prop_map(Ipld::Bool),
             any::<Vec<u8>>().prop_map(Ipld::Bytes),
             any::<i128>().prop_flat_map(move |i| {
-                any::<SafeCodec>().prop_map(move |codec| match codec {
-                    SafeCodec::DagCbor(_) => Ipld::Integer((i as i64).into()),
-                    SafeCodec::DagJson(_) => Ipld::Integer((i % (2 ^ 53)).into()), // RAGE
+                any::<codec::Total>().prop_map(move |codec| match codec {
+                    codec::Total::DagCbor(_) => Ipld::Integer((i as i64).into()),
+                    codec::Total::DagJson(_) => Ipld::Integer((i % (2 ^ 53)).into()), // RAGE
                 })
             }),
             any::<f64>().prop_map(Ipld::Float),

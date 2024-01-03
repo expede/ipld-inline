@@ -1,4 +1,4 @@
-//! [`Ipld`] marked as having passed [`Encode`]
+//! [`Ipld`][libipld::Ipld] marked as having passed [`Encode`]
 
 use libipld::{
     codec::{Codec, Encode},
@@ -10,15 +10,15 @@ use std::io::Write;
 ///
 /// # Usage
 ///
-/// * Use [`Ipld::to_encodable`] to construct a value of this type[^gdp].
+/// * Use [`EncodableAs::encodable_as`][crate::codec::EncodableAs] to construct a value of this type[^gdp].
 /// * Use [`Into::into`] to extract the underlying [`Ipld`].
 ///
 /// ```txt
-/// ┌────────┐ to_encodable_as ┌─────────────────┐
-/// │        ├─────────────────►                 │
-/// │  Ipld  │                 │  EncodableIpld  │
-/// │        ◄─────────────────┤                 │
-/// └────────┘      into       └─────────────────┘
+/// ┌────────┐ encodable_as ┌─────────────────┐
+/// │        ├──────────────►                 │
+/// │  Ipld  │              │  EncodableIpld  │
+/// │        ◄──────────────┤                 │
+/// └────────┘     into     └─────────────────┘
 /// ```
 ///
 /// [^gdp]: For more on this technique, see the [Ghosts of Departed Proofs](https://kataskeue.com/gdp.pdf) paper.
@@ -29,7 +29,6 @@ where
     C: Codec,
     Ipld: Encode<C>,
 {
-    // FIXME visibility
     pub(crate) ipld: &'a Ipld,
     pub(crate) codec: C,
 }
@@ -49,14 +48,23 @@ where
     /// # use pretty_assertions::assert_eq;
     /// #
     /// let dag = ipld!([1, 2, 3]);
-    /// let encodable = dag.to_encodable_as(DagCborCodec);
+    /// let encodable = dag.encodable_as(DagCborCodec);
     /// let observed = encodable.guaranteed_encode();
     /// assert_eq!(observed, vec![0x83, 0x01, 0x02, 0x03]);
     /// ```
     pub fn guaranteed_encode(&self) -> Vec<u8> {
         self.codec
             .encode(self)
-            .expect("should never fail if `to_encodable` is implemented correctly")
+            .expect("should never fail if `encodable_as` is implemented correctly")
+    }
+}
+
+impl<'a, C: Codec> Encode<C> for EncodableIpld<'a, C>
+where
+    Ipld: Encode<C>,
+{
+    fn encode<W: Write>(&self, _: C, w: &mut W) -> Result<(), error::Error> {
+        self.ipld.encode(self.codec, w)
     }
 }
 
@@ -66,14 +74,5 @@ where
 {
     fn from(enc_ipld: EncodableIpld<'a, C>) -> Self {
         enc_ipld.ipld
-    }
-}
-
-impl<'a, C: Codec> Encode<C> for EncodableIpld<'a, C>
-where
-    Ipld: Encode<C>,
-{
-    fn encode<W: Write>(&self, c: C, w: &mut W) -> Result<(), error::Error> {
-        self.ipld.encode(c, w)
     }
 }

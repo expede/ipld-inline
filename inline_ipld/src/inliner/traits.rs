@@ -1,5 +1,5 @@
 //! Traits for inlining [`Ipld`]
-use crate::{ipld::inlined::InlineIpld, store::traits::Store};
+use crate::{ipld::InlineIpld, store::Store};
 use libipld::{Cid, Ipld};
 use std::ops::DerefMut;
 
@@ -16,7 +16,7 @@ pub trait Inliner {
     ///
     /// * `self` - The [`Inliner`]
     /// * `ipld` - The [`Ipld`] to push into procesisng queue
-    fn resolve(&mut self, ipld: Ipld);
+    fn resolve(&mut self, ipld: &Ipld);
 
     /// Run the [`Inliner`] until completion or unable to progress
     ///
@@ -27,7 +27,7 @@ pub trait Inliner {
     /// #   inliner::{at_least_once::AtLeastOnce, traits::Inliner},
     /// #   store::{
     /// #     traits::Store,
-    /// #     memory::MemoryStore
+    /// #     MemoryStore
     /// #   }
     /// # };
     /// # use libipld::{ipld, Cid, cid::{CidGeneric, Version}};
@@ -64,7 +64,7 @@ pub trait Inliner {
     /// #   },
     /// #   store::{
     /// #     traits::Store,
-    /// #     memory::MemoryStore
+    /// #     MemoryStore
     /// #   }
     /// # };
     /// # use libipld::{ipld, Ipld, cid::{CidGeneric, Version}};
@@ -115,7 +115,7 @@ impl<I: Inliner> Stuck<I> {
     /// #   inliner::{at_least_once::AtLeastOnce, traits::Inliner},
     /// #   store::{
     /// #     traits::Store,
-    /// #     memory::MemoryStore
+    /// #     MemoryStore
     /// #   }
     /// # };
     /// # use libipld::{ipld, Ipld, cid::{CidGeneric, Version}, Cid};
@@ -139,8 +139,8 @@ impl<I: Inliner> Stuck<I> {
     /// // The IPLD is now stored
     /// assert_eq!(store.get(cid).unwrap(), &ipld!([1, 2, 3]));
     /// ```
-    pub fn resolve<S: Store + ?Sized>(self, ipld: Ipld, store: &mut S) -> Box<I> {
-        store.put_keyed(self.needs, ipld.clone());
+    pub fn resolve<S: Store + ?Sized>(self, ipld: &Ipld, store: &mut S) -> Box<I> {
+        store.put_keyed(self.needs, ipld);
         self.stub(ipld)
     }
 
@@ -153,7 +153,7 @@ impl<I: Inliner> Stuck<I> {
     /// #   inliner::{at_least_once::AtLeastOnce, traits::Inliner},
     /// #   store::{
     /// #     traits::Store,
-    /// #     memory::MemoryStore
+    /// #     MemoryStore
     /// #   }
     /// # };
     /// # use libipld::{ipld, Ipld, cid::{CidGeneric, Version}, Cid};
@@ -173,10 +173,10 @@ impl<I: Inliner> Stuck<I> {
     ///
     /// assert_eq!(observed.unwrap(), expected);
     /// ```
-    pub fn stub(mut self, ipld: Ipld) -> Box<I> {
+    pub fn stub(mut self, ipld: &Ipld) -> Box<I> {
         self.inliner
             .deref_mut()
-            .resolve(InlineIpld::wrap(self.needs, ipld).into());
+            .resolve(InlineIpld::new(self.needs, ipld).into());
 
         self.inliner
     }
@@ -192,7 +192,7 @@ impl<I: Inliner> Stuck<I> {
     /// #   inliner::{at_least_once::AtLeastOnce, traits::Inliner},
     /// #   store::{
     /// #     traits::Store,
-    /// #     memory::MemoryStore
+    /// #     MemoryStore
     /// #   }
     /// # };
     /// # use libipld::{ipld, Ipld, cid::{CidGeneric, Version}, Cid};
@@ -213,7 +213,7 @@ impl<I: Inliner> Stuck<I> {
     /// }
     /// ```
     pub fn ignore(mut self) -> Box<I> {
-        self.inliner.deref_mut().resolve(Ipld::Link(self.needs));
+        self.inliner.deref_mut().resolve(&Ipld::Link(self.needs));
         self.inliner
     }
 }

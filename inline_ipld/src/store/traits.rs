@@ -1,10 +1,6 @@
 //! Content-addressed store trait
-use crate::{
-    cid,
-    codec::SafeCodec,
-    extractor::Extractor,
-    ipld::{encodable::EncodableAs, inlined::InlineIpld},
-};
+
+use crate::{cid, codec, codec::EncodableAs, extractor::Extractor, ipld::InlineIpld};
 use libipld::{
     cid::{Cid, Version},
     codec::{Codec, Encode},
@@ -31,7 +27,7 @@ pub trait Store {
     /// # Examples
     ///
     /// ```
-    /// # use inline_ipld::store::traits::Store;
+    /// # use inline_ipld::store::Store;
     /// # use std::{collections::BTreeMap, str::FromStr};
     /// # use multihash::Code::Sha2_256;
     /// # use libipld::{
@@ -62,7 +58,7 @@ pub trait Store {
     /// # Examples
     ///
     /// ```
-    /// # use inline_ipld::store::traits::Store;
+    /// # use inline_ipld::store::Store;
     /// # use libipld::{cid, ipld};
     /// # use std::{collections::BTreeMap, str::FromStr};
     /// #
@@ -91,7 +87,7 @@ pub trait Store {
     /// # Examples
     ///
     /// ```
-    /// # use inline_ipld::store::traits::Store;
+    /// # use inline_ipld::store::Store;
     /// # use std::{collections::BTreeMap, str::FromStr};
     /// # use multihash::Code::Sha2_256;
     /// # use libipld::{
@@ -122,7 +118,7 @@ pub trait Store {
     }
 
     #[cfg(feature = "dag-cbor")]
-    /// [`Store::put`] but defaults to [`Sha2_256`] and [`DagCborCodec`]
+    /// [`Store::put`] but defaults to [`Sha2_256`] and [`DagCborCodec`][`libipld::cbor::DagCborCodec`]
     fn put_default(&mut self, ipld: Ipld) -> Cid {
         use libipld_cbor::DagCborCodec;
         self.put(ipld, DagCborCodec, &Sha2_256, Version::V1)
@@ -142,7 +138,7 @@ pub trait Store {
     /// # Examples
     ///
     /// ```
-    /// #  use inline_ipld::store::traits::Store;
+    /// #  use inline_ipld::store::Store;
     /// #  use std::{collections::BTreeMap, str::FromStr};
     /// #  use multihash::Code::Sha2_256;
     /// #  use libipld::{
@@ -158,10 +154,9 @@ pub trait Store {
     /// assert_eq!(observed, vec![131, 1, 2, 3]);
     /// ```
     fn get_raw(&self, cid: Cid) -> Result<Vec<u8>, GetRawError> {
-        // FIXME change UnknownCodec to unknown or unsafe
         let ipld = self.get(cid).map_err(GetRawError::NotFound)?;
         let codec_id: u64 = cid.codec();
-        let codec: SafeCodec = codec_id.try_into().map_err(GetRawError::UnknownCodec)?;
+        let codec: codec::Total = codec_id.try_into().map_err(GetRawError::UnknownCodec)?;
 
         let mut buffer = vec![];
         ipld.encode(codec, &mut buffer)
@@ -183,7 +178,7 @@ pub trait Store {
     /// # Examples
     ///
     /// ```
-    /// # use inline_ipld::{store::traits::Store, ipld::inlined::InlineIpld};
+    /// # use inline_ipld::{store::Store, ipld::inline::Inline};
     /// #
     /// # use libipld::{ipld, cid::Version};
     /// # use libipld::cbor::DagCborCodec;

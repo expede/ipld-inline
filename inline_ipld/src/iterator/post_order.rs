@@ -57,7 +57,7 @@ impl<'a> Iterator for PostOrderIpldIter<'a> {
 /// # Examples
 ///
 /// ```
-/// use inline_ipld::iterator::post_order::{PostOrderIpldIter, is_delimiter_next};
+/// use inline_ipld::iterator::{PostOrderIpldIter, is_delimiter_next};
 /// use libipld::ipld;
 /// use std::iter::Peekable;
 ///

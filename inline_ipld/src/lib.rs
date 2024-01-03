@@ -8,9 +8,11 @@ pub mod cid;
 pub mod codec;
 pub mod extractor;
 pub mod inliner;
-pub mod ipld;
 pub mod iterator;
 pub mod store;
+
+mod ipld;
+pub use ipld::InlineIpld;
 
 #[cfg(test)]
 pub mod test_util;

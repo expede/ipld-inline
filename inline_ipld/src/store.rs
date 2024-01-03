@@ -1,3 +1,7 @@
 //! Content addressed storage
-pub mod memory;
-pub mod traits;
+
+mod memory;
+mod traits;
+
+pub use memory::MemoryStore;
+pub use traits::{GetRawError, Store};

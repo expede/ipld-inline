@@ -1,11 +1,11 @@
 use super::super_multihash::SuperMultihash;
-use crate::codec::SafeCodec;
+use crate::codec::Total;
 use libipld::{cid, cid::multihash::Code};
 use proptest::prelude::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct CidConfig {
-    pub codec: SafeCodec,
+    pub codec: codec::Total,
     pub digester: Code,
     pub version: cid::Version,
 }
@@ -22,7 +22,7 @@ impl Arbitrary for CidConfig {
             //     codec: IpldCodec::DagPb,
             //     version: cid::Version::V0,
             // }),
-            (any::<SuperMultihash>(), any::<SafeCodec>()).prop_map(
+            (any::<SuperMultihash>(), any::<codec::Total>()).prop_map(
                 |(SuperMultihash(digester), codec)| {
                     CidConfig {
                         codec,

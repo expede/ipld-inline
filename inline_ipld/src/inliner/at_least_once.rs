@@ -1,8 +1,6 @@
 //! Inline each subgraph at _least_ once (without deduplication)
 use super::traits::{Inliner, Stuck};
-use crate::{
-    ipld::inlined::InlineIpld, iterator::post_order::PostOrderIpldIter, store::traits::Store,
-};
+use crate::{ipld::InlineIpld, iterator::PostOrderIpldIter, store::Store};
 use libipld::{cid::Cid, ipld::Ipld};
 use std::collections::BTreeMap;
 
@@ -61,7 +59,7 @@ impl<'a> Inliner for AtLeastOnce<'a> {
                     if let Ok(ipld) = store.get(*cid) {
                         let mut inner = BTreeMap::new();
                         inner.insert("link".into(), Ipld::Link(*cid));
-                        inner.insert("data".into(), ipld.clone()); // FIXME clone
+                        inner.insert("data".into(), ipld.clone());
 
                         let mut outer = BTreeMap::new();
                         outer.insert("/".into(), Ipld::Map(inner));
@@ -100,7 +98,7 @@ impl<'a> Inliner for AtLeastOnce<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::memory::MemoryStore;
+    use crate::store::MemoryStore;
     use libipld::ipld;
     use pretty_assertions::assert_eq;
     use std::str::FromStr;

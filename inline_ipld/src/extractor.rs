@@ -1,8 +1,12 @@
 //! Strategies for decomposing inlined [`Ipld`] to a DAG
+//!
+//! This is typically called via [`Store::extract`][crate::store::Store::extract]
+
 use crate::{
     cid,
-    ipld::{encodable::EncodableAs, inlined::InlineIpld},
-    iterator::post_order::{is_delimiter_next, PostOrderIpldIter},
+    codec::EncodableAs,
+    ipld::InlineIpld,
+    iterator::{is_delimiter_next, PostOrderIpldIter},
 };
 use core::iter::Peekable;
 use libipld::{
@@ -132,7 +136,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::{cid_config::CidConfig, super_ipld::SuperIpld};
+    use crate::{
+        ipld::InlineIpld,
+        test_util::{cid_config::CidConfig, super_ipld::SuperIpld},
+    };
     use libipld::cbor::DagCborCodec;
     use libipld::{cid::CidGeneric, ipld};
     use multihash::Code::Sha2_256;
@@ -145,17 +152,15 @@ mod tests {
         #[test]
         fn identity_ipld_prop_test((SuperIpld(ipld), CidConfig{ digester, version, codec }) in (any::<SuperIpld>(), any::<CidConfig>())) {
             let inline = InlineIpld::attest(ipld.clone());
-            // FIXME generic codec
             let mut ext = Extractor::new(&inline, codec, &digester, version);
             prop_assert_eq!(ext.next().unwrap().1, ipld);
         }
 
         #[test]
-        fn correct_cid_prop_test((SuperIpld(ipld), CidConfig{ digester, version, .. }) in (any::<SuperIpld>(), any::<CidConfig>())) {
+        fn correct_cid_prop_test((SuperIpld(ipld), CidConfig{ digester, version, codec }) in (any::<SuperIpld>(), any::<CidConfig>())) {
             let inline = InlineIpld::attest(ipld);
-            // FIXME generic codec
-            for (cid, dag) in Extractor::new(&inline, DagCborCodec, &digester, version) {
-              prop_assert_eq!(cid, cid::new(&dag, DagCborCodec, &digester, version));
+            for (cid, dag) in Extractor::new(&inline, codec, &digester, version) {
+              prop_assert_eq!(cid, cid::new(&dag, codec, &digester, version));
             }
         }
     }

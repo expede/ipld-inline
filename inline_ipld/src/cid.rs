@@ -1,6 +1,6 @@
 //! Helpers for working with [`Cid`]s
 
-use crate::ipld::encodable::EncodableAs;
+use crate::codec::EncodableAs;
 use libipld::{
     cid,
     cid::Cid,
@@ -41,7 +41,7 @@ pub fn new<C: Codec, I: EncodableAs<C>, D: MultihashDigest<64>>(
 where
     Ipld: Encode<C>,
 {
-    let encoded: Vec<u8> = ipldish.to_encodable_as(codec).guaranteed_encode();
+    let encoded: Vec<u8> = ipldish.encodable_as(codec).guaranteed_encode();
     let multihash = digester.digest(&encoded);
     CidGeneric::new(version, codec.into(), multihash)
         .expect("should not fail unless `EncodableAs` is improperly implemented for your codec")

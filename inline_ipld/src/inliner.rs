@@ -1,4 +1,8 @@
 //! Inlining [`Ipld`][libipld::ipld::Ipld] from a content addressed store
-pub mod at_least_once;
-pub mod at_most_once;
-pub mod traits;
+mod at_least_once;
+mod at_most_once;
+mod traits;
+
+pub use at_least_once::AtLeastOnce;
+pub use at_most_once::AtMostOnce;
+pub use traits::{Inliner, Stuck};

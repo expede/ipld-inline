@@ -1,4 +1,4 @@
-use inline_ipld::store::memory::MemoryStore;
+use inline_ipld::store::MemoryStore;
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 

@@ -3,7 +3,7 @@ use super::{
     at_least_once::AtLeastOnce,
     traits::{Inliner, Stuck},
 };
-use crate::{ipld::inlined::InlineIpld, store::traits::Store};
+use crate::{ipld::InlineIpld, store::Store};
 use libipld::{cid::Cid, ipld::Ipld};
 use std::collections::HashSet;
 
