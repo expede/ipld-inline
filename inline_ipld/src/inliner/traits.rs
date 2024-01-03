@@ -139,8 +139,8 @@ impl<I: Inliner> Stuck<I> {
     /// // The IPLD is now stored
     /// assert_eq!(store.get(cid).unwrap(), &ipld!([1, 2, 3]));
     /// ```
-    pub fn resolve<S: Store + ?Sized>(self, ipld: Ipld, store: &mut S) -> Box<I> {
-        store.put_keyed(self.needs, ipld.clone());
+    pub fn resolve<S: Store>(self, ipld: Ipld, store: &mut S) -> Box<I> {
+        store.put_keyed(self.needs, &ipld);
         self.stub(ipld)
     }
 

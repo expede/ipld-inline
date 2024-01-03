@@ -70,7 +70,7 @@ pub trait Store {
     ///
     /// assert_eq!(Store::get(&store, cid).unwrap(), &block);
     /// ```
-    fn put_keyed(&mut self, cid: Cid, ipld: Ipld);
+    fn put_keyed(&mut self, cid: Cid, ipld: &Ipld);
 
     /// Insert a block into content addressed storage
     ///
@@ -104,7 +104,7 @@ pub trait Store {
     /// ```
     fn put<C: Codec, D: MultihashDigest<64>>(
         &mut self,
-        ipld: Ipld,
+        ipld: &Ipld,
         codec: C,
         digester: &D,
         cid_version: Version,
@@ -112,14 +112,14 @@ pub trait Store {
     where
         Ipld: EncodableAs<C>,
     {
-        let block_cid = cid::new(&ipld, codec, digester, cid_version);
+        let block_cid = cid::new(ipld, codec, digester, cid_version);
         self.put_keyed(block_cid, ipld);
         block_cid
     }
 
     #[cfg(feature = "dag-cbor")]
     /// [`Store::put`] but defaults to [`Sha2_256`] and [`DagCborCodec`][`libipld::cbor::DagCborCodec`]
-    fn put_default(&mut self, ipld: Ipld) -> Cid {
+    fn put_default(&mut self, ipld: &Ipld) -> Cid {
         use libipld_cbor::DagCborCodec;
         self.put(ipld, DagCborCodec, &Sha2_256, Version::V1)
     }
@@ -210,7 +210,7 @@ pub trait Store {
     ) where
         Ipld: EncodableAs<C>,
     {
-        for (cid, dag) in Extractor::new(inline_ipld, codec, digester, cid_version) {
+        for (cid, ref dag) in Extractor::new(inline_ipld, codec, digester, cid_version) {
             self.put_keyed(cid, dag);
         }
     }
@@ -221,8 +221,8 @@ impl Store for BTreeMap<Cid, Ipld> {
         self.get(&cid).ok_or(BlockNotFound(cid))
     }
 
-    fn put_keyed(&mut self, cid: Cid, ipld: Ipld) {
-        self.insert(cid, ipld);
+    fn put_keyed(&mut self, cid: Cid, ipld: &Ipld) {
+        self.insert(cid, ipld.clone());
     }
 }
 
